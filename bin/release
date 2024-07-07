@@ -3,5 +3,5 @@
 cat <<EOF
 ---
 default_process_types:
-  web: $HOME/.bun/bin/bun --help
+  web: bun --help
 EOF

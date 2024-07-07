@@ -8,7 +8,12 @@ echo "-----> Installing Bun $BUN_VERSION"
 
 curl -fsSL https://bun.sh/install | bash -s -- bun-v$BUN_VERSION
 
-export PATH=$HOME/.bun/bin:$PATH
-echo 'export PATH=$HOME/.bun/bin:$PATH' >> $HOME/.profile
+# Ensure the installation path is correct
+export BUN_INSTALL="$HOME/.bun"
+export PATH=$BUN_INSTALL/bin:$PATH
+
+# Write the PATH to profile scripts
+echo 'export BUN_INSTALL="$HOME/.bun"' >> $HOME/.profile.d/bun.sh
+echo 'export PATH=$BUN_INSTALL/bin:$PATH' >> $HOME/.profile.d/bun.sh
 
 echo "PATH after installation: $PATH"
