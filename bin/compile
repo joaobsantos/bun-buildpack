@@ -2,14 +2,13 @@
 
 set -e
 
-BUN_VERSION="1.1.18"
+BUN_VERSION="1.1.6"
 
 echo "-----> Installing Bun $BUN_VERSION"
 
 curl -fsSL https://bun.sh/install | bash -s -- bun-v$BUN_VERSION
 
 export PATH=$HOME/.bun/bin:$PATH
-echo 'export PATH=$HOME/.bun/bin:$PATH' >> $HOME/.profile
-echo 'export PATH=$HOME/.bun/bin:$PATH' >> $HOME/.bashrc
+echo 'export PATH=$HOME/.bun/bin:$PATH' >> $HOME/.profile.d/bun.sh
 
 echo "PATH after installation: $PATH"

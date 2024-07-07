@@ -3,5 +3,5 @@
 cat <<EOF
 ---
 default_process_types:
-  web: source $HOME/.profile && bun --help
+  web: bun --help
 EOF
