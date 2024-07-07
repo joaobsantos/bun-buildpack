@@ -12,21 +12,13 @@ curl -fsSL https://bun.sh/install | bash -s -- bun-v$BUN_VERSION
 export BUN_INSTALL="$HOME/.bun"
 export PATH=$BUN_INSTALL/bin:$PATH
 
-# Create the profile.d directory if it doesn't exist
-mkdir -p $HOME/.profile.d
-
-# Write the PATH to profile scripts
-echo 'export BUN_INSTALL="$HOME/.bun"' > $HOME/.profile.d/bun.sh
-echo 'export PATH=$BUN_INSTALL/bin:$PATH' >> $HOME/.profile.d/bun.sh
-
-# Ensure the profile script is executable
-chmod +x $HOME/.profile.d/bun.sh
-
+# Log installation details
+echo "Bun installed to: $BUN_INSTALL"
 echo "PATH after installation: $PATH"
-ls -l $HOME/.bun/bin
+ls -l $BUN_INSTALL/bin
 
 # Make sure bun is executable
-chmod +x $HOME/.bun/bin/bun
+chmod +x $BUN_INSTALL/bin/bun
 
 # Log bun version
-$HOME/.bun/bin/bun --version
+$BUN_INSTALL/bin/bun --version

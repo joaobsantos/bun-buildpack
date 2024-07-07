@@ -3,5 +3,5 @@
 cat <<EOF
 ---
 default_process_types:
-  web: bash -c 'source $HOME/.profile.d/bun.sh && bun --help'
+  web: export BUN_INSTALL="\$HOME/.bun" && export PATH="\$BUN_INSTALL/bin:\$PATH" && bun --help
 EOF
