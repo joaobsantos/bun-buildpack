@@ -5,10 +5,5 @@ cat << EOF
 addons:
   []
 default_process_types:
-  web: $(cat <<-'CMD'
-    export BUN_INSTALL=$HOME/.bun
-    export PATH=$BUN_INSTALL/bin:$PATH
-    bun run -b start -p $PORT
-  CMD
-  )
+  web: export BUN_INSTALL=\$HOME/.bun; export PATH=\$BUN_INSTALL/bin:\$PATH; bun run -b start -p \$PORT
 EOF
