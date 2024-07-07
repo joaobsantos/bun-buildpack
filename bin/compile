@@ -23,3 +23,10 @@ echo 'export PATH=$BUN_INSTALL/bin:$PATH' >> $HOME/.profile.d/bun.sh
 chmod +x $HOME/.profile.d/bun.sh
 
 echo "PATH after installation: $PATH"
+ls -l $HOME/.bun/bin
+
+# Make sure bun is executable
+chmod +x $HOME/.bun/bin/bun
+
+# Log bun version
+$HOME/.bun/bin/bun --version
