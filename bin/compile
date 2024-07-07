@@ -2,6 +2,10 @@
 
 set -e -o pipefail
 
+BUILD_DIR=${1:-}
+CACHE_DIR=${2:-}
+ENV_DIR=${3:-}
+
 steptxt="----->"
 
 start() {
@@ -11,10 +15,6 @@ start() {
 finished() {
     echo "done"
 }
-
-BUILD_DIR=${1:-}
-CACHE_DIR=${2:-}
-ENV_DIR=${3:-}
 
 echo_export_env_vars() {
   local BUN_INSTALL="$HOME/.bun"
