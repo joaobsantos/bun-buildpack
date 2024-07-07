@@ -53,6 +53,8 @@ then
   rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
   rm -rf $BUILD_DIR/tmp
   rm -rf $BUILD_DIR/.cache
+  rm -rf $HEROKU_DIR/install/cache
+  rm -rf $HEROKU_DIR/install
   # Add any other directories you don't need in your final slug
 fi
 
