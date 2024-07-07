@@ -26,9 +26,16 @@ else
     cp -R "$CACHE_DIR/.bun" "$HOME/.bun"
 fi
 
+# Debug: List the contents of the bun installation directory
+echo "-----> Bun installation directory contents:"
+ls -la $HOME/.bun
+
 # set environment variables
 export BUN_INSTALL=$HOME/.bun
 export PATH=$BUN_INSTALL/bin:$PATH
+
+# Debug: Print the PATH
+echo "-----> PATH: $PATH"
 
 PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
 mkdir -p $(dirname $PROFILE_PATH)
@@ -37,15 +44,15 @@ echo 'export PATH=$BUN_INSTALL/bin:$PATH' >> $PROFILE_PATH
 
 # download dependencies
 echo "-----> Installing Dependencies"
-bun install
+bun install || { echo "-----> Bun install failed"; exit 1; }
 
 # build the project
 if [ -f heroku_build.ts ]; then
   echo "-----> Running heroku_build.ts"
-  bun run heroku_build.ts
+  bun run heroku_build.ts || { echo "-----> Bun run heroku_build.ts failed"; exit 1; }
 elif [ -f bun.config.ts ]; then
   echo "-----> Running Bun build"
-  bun run build
+  bun run build || { echo "-----> Bun run build failed"; exit 1; }
 fi
 
 # copy the build back to BUILD_DIR
