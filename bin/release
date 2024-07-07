@@ -5,5 +5,10 @@ cat << EOF
 addons:
   []
 default_process_types:
-  web: .profile.d/bun_buildpack_paths.sh && bun run -b start -p \$PORT
+  web: $(cat <<-'CMD'
+    export BUN_INSTALL=$HOME/.bun
+    export PATH=$BUN_INSTALL/bin:$PATH
+    bun run -b start -p $PORT
+  CMD
+  )
 EOF
