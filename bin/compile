@@ -55,3 +55,7 @@ then
   rm -rf $BUILD_DIR/.cache
   # Add any other directories you don't need in your final slug
 fi
+
+# List all files and directories with their sizes
+echo "Listing all files and directories with their sizes..."
+du -ah $BUILD_DIR | sort -rh | head -n 100
