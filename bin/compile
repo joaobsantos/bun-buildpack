@@ -20,5 +20,8 @@ ls -l $BUN_INSTALL/bin
 # Make sure bun is executable
 chmod +x $BUN_INSTALL/bin/bun
 
+# Create a symbolic link to bun in /usr/local/bin
+ln -s $BUN_INSTALL/bin/bun /usr/local/bin/bun
+
 # Log bun version
 $BUN_INSTALL/bin/bun --version
