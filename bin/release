@@ -3,5 +3,5 @@
 cat <<EOF
 ---
 default_process_types:
-  web: $HOME/.bun/bin/bun --help
+  web: bash -c 'source $HOME/.profile.d/bun.sh && bun --help'
 EOF
