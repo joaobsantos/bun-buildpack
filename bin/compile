@@ -4,6 +4,8 @@
 
 set -e
 
+echo 'BUN-BUILDPACK - v1.0.0'
+
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
@@ -59,5 +61,5 @@ then
 fi
 
 # List all files and directories with their sizes
-echo "Listing all files and directories with their sizes..."
-du -ah $BUILD_DIR | sort -rh | head -n 100
+# echo "Listing all files and directories with their sizes..."
+# du -ah $BUILD_DIR | sort -rh | head -n 100
