@@ -1,1 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/sh
+
+cat <<EOF
+---
+default_process_types:
+  web: bun --help
+EOF
