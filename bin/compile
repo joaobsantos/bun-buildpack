@@ -16,16 +16,16 @@ finished() {
     echo "done"
 }
 
-echo "v0.0.5"
+echo "v0.0.6"
 echo "BUILD_DIR: $BUILD_DIR"
 echo "CACHE_DIR: $CACHE_DIR"
 echo "ENV_DIR: $ENV_DIR"
 echo "HOME: $HOME"
 
 echo_export_env_vars() {
-  local BUN_INSTALL="\$HOME/.bun"
+  local BUN_INSTALL="\$BUILD_DIR/.bun"
 
-  echo "export BUN_INSTALL=\$HOME/.bun"
+  echo "export BUN_INSTALL=\$BUILD_DIR/.bun"
   echo "export PATH=\$BUN_INSTALL/bin:\$PATH"
 }
 
@@ -40,10 +40,10 @@ write_profile_d_script() {
 }
 
 start "Installing Bun"
-  curl -fsSL https://bun.sh/install | bash
+  curl -fsSL https://bun.sh/install | bash -s -- --prefix "$BUILD_DIR/.bun"
 finished
 
-export BUN_INSTALL="$HOME/.bun"
+export BUN_INSTALL="$BUILD_DIR/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
 write_profile_d_script
