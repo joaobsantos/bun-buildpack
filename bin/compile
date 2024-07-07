@@ -18,7 +18,7 @@ cd $HOME
 # install bun
 if [ ! -d "$CACHE_DIR/.bun" ]; then
     echo "-----> Installing Bun"
-    curl -fsSL https://bun.sh/install | bash
+    curl -fsSL https://bun.sh/install | bash -s -- --yes
     mkdir -p "$CACHE_DIR/.bun"
     cp -R "$HOME/.bun" "$CACHE_DIR/.bun"
 else
@@ -34,9 +34,9 @@ ls -la $HOME
 echo "-----> Bun installation directory contents:"
 ls -la $HOME/.bun
 
-# Debug: List the contents of the .bun/bin directory
-echo "-----> .bun/bin directory contents:"
-ls -la $HOME/.bun/bin
+# Debug: List the contents of the .bun directory
+echo "-----> .bun directory contents:"
+ls -la $HOME/.bun/.bun
 
 # set environment variables
 export BUN_INSTALL=$HOME/.bun
