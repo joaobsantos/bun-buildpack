@@ -36,6 +36,12 @@ mkdir -p $(dirname $PROFILE_PATH)
 echo 'export PATH="$HOME/.heroku/bin:$PATH"' >> $PROFILE_PATH
 echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH
 
+# set environment variables for bunx
+PROFILE_PATH_BUNX="$BUILD_DIR/.profile.d/bunx.sh"
+mkdir -p $(dirname $PROFILE_PATH_BUNX)
+echo 'export PATH="$HOME/.heroku/bin:$PATH"' >> $PROFILE_PATH_BUNX
+echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH_BUNX
+
 set +e
 
 # download dependencies
