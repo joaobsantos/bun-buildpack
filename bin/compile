@@ -21,9 +21,10 @@ ls -l $BUN_INSTALL/bin
 # Make sure bun is executable
 chmod +x $BUN_INSTALL/bin/bun
 
-# Write the environment setup to a profile file in the root directory
-echo 'export BUN_INSTALL="$HOME/.bun"' > $BUILD_DIR/.profile
-echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> $BUILD_DIR/.profile
+# Create a .profile.d script to set PATH
+mkdir -p $BUILD_DIR/.profile.d
+echo 'export BUN_INSTALL="$HOME/.bun"' > $BUILD_DIR/.profile.d/bun.sh
+echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> $BUILD_DIR/.profile.d/bun.sh
 
-# Ensure the profile file is executable
-chmod +x $BUILD_DIR/.profile
+# Ensure the profile script is executable
+chmod +x $BUILD_DIR/.profile.d/bun.sh
