@@ -1,69 +1,52 @@
-#!/bin/bash
-# usage: bin/compile <build-dir> <cache-dir>
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir> <env-dir>
+# $HOME: /app
 
-set -eo pipefail
+set -e
 
-BUILD_DIR=$1
-CACHE_DIR=$2
-ENV_DIR=$3
+BUILD_DIR=${1:-.}
+CACHE_DIR=${2:-}
+ENV_DIR=${3:-}
 
-steptxt="----->"
+HEROKU_DIR=$BUILD_DIR/.heroku
+BIN_DIR=$HEROKU_DIR/bin
 
-start() {
-    echo "$steptxt $@... "
-}
+# To enable the local source build cache path, copy the files and match the build path with the startup path.
+cp -rpT $BUILD_DIR $HOME
+cd $HOME
 
-finished() {
-    echo "done"
-}
-
-mkdir -p "$BUILD_DIR" "$CACHE_DIR"
-
-echo "v0.0.5"
-echo "BUILD_DIR: $BUILD_DIR"
-echo "CACHE_DIR: $CACHE_DIR"
-echo "ENV_DIR: $ENV_DIR"
-echo "HOME: $HOME"
-
+# install bun
 if [ ! -d "$CACHE_DIR/.bun" ]; then
-    start "Installing Bun"
+    echo "-----> Installing Bun"
     curl -fsSL https://bun.sh/install | bash
-    finished
     mkdir -p "$CACHE_DIR/.bun"
     cp -R "$HOME/.bun" "$CACHE_DIR/.bun"
 else
-    start "Using cached Bun"
+    echo "-----> Using cached Bun"
     cp -R "$CACHE_DIR/.bun" "$HOME/.bun"
-    finished
 fi
 
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
+# set environment variables
+export BUN_INSTALL=$HOME/.bun
+export PATH=$BUN_INSTALL/bin:$PATH
 
-echo_export_env_vars() {
-  echo "export BUN_INSTALL=\$HOME/.bun"
-  echo "export PATH=\$BUN_INSTALL/bin:\$PATH"
-}
+PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
+mkdir -p $(dirname $PROFILE_PATH)
+echo 'export BUN_INSTALL=$HOME/.bun' >> $PROFILE_PATH
+echo 'export PATH=$BUN_INSTALL/bin:$PATH' >> $PROFILE_PATH
 
-write_profile_d_script() {
-  start "Creating .profile.d with env vars"
-    mkdir -p "$BUILD_DIR/.profile.d"
-    local profile_path="$BUILD_DIR/.profile.d/bun_buildpack_paths.sh"
+# download dependencies
+echo "-----> Installing Dependencies"
+bun install
 
-    echo_export_env_vars > "$profile_path"
-    chmod +x "$profile_path"
-  finished
-}
+# build the project
+if [ -f heroku_build.ts ]; then
+  echo "-----> Running heroku_build.ts"
+  bun run heroku_build.ts
+elif [ -f bun.config.ts ]; then
+  echo "-----> Running Bun build"
+  bun run build
+fi
 
-write_profile_d_script
-
-# Build the project
-cd "$BUILD_DIR"
-
-start "Installing Dependencies"
-  bun install
-finished
-
-start "Building the app"
-  bun run -b build
-finished
+# copy the build back to BUILD_DIR
+cp -rpT $HOME $BUILD_DIR

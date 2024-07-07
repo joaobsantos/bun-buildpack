@@ -7,5 +7,5 @@ config_vars:
   BUN_INSTALL: /app/.bun
   PATH: /app/.bun/bin:/usr/local/bin:/usr/bin:/bin
 default_process_types:
-  web: . /app/.profile.d/bun_buildpack_paths.sh && bun run -b start -p \$PORT
+  web: bun run start -p \$PORT
 EOF
