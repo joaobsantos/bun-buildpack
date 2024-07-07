@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
 
-# Log execution for debugging
-echo "Executing release script..."
-
-# Output YAML to specify the default process types
 cat << EOF
 ---
-addons: []
-config_vars: {}
+addons:
+  []
 default_process_types:
   web: bun run -b start -p \$PORT
 EOF
-
-# Log completion for debugging
-echo "Release script completed"

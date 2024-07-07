@@ -16,8 +16,7 @@ finished() {
     echo "done"
 }
 
-# Logging for debugging
-echo "v0.0.2"
+echo "v0.0.3"
 echo "BUILD_DIR: $BUILD_DIR"
 echo "CACHE_DIR: $CACHE_DIR"
 echo "ENV_DIR: $ENV_DIR"
@@ -36,15 +35,11 @@ write_profile_d_script() {
     local profile_path="$BUILD_DIR/.profile.d/bun_buildpack_paths.sh"
 
     echo_export_env_vars > "$profile_path"
-    echo "Profile script content:"
-    cat "$profile_path"
   finished
 }
 
 start "Installing Bun"
   curl -fsSL https://bun.sh/install | bash
-  echo "Bun installation completed"
-  ls -l "$HOME/.bun"
 finished
 
 export BUN_INSTALL="$HOME/.bun"
@@ -57,10 +52,8 @@ cd "$BUILD_DIR"
 
 start "Installing Dependencies"
   bun install
-  echo "Dependencies installed"
 finished
 
 start "Building the app"
   bun run -b build
-  echo "App build completed"
 finished
