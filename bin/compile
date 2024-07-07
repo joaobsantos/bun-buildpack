@@ -16,7 +16,7 @@ finished() {
     echo "done"
 }
 
-echo "v0.0.4"
+echo "v0.0.5"
 echo "BUILD_DIR: $BUILD_DIR"
 echo "CACHE_DIR: $CACHE_DIR"
 echo "ENV_DIR: $ENV_DIR"
@@ -35,6 +35,7 @@ write_profile_d_script() {
     local profile_path="$BUILD_DIR/.profile.d/bun_buildpack_paths.sh"
 
     echo_export_env_vars > "$profile_path"
+    chmod +x "$profile_path"
   finished
 }
 
