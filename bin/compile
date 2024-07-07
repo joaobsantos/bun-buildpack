@@ -1,75 +1,14 @@
-#!/usr/bin/env bash
-# bin/compile <build-dir> <cache-dir> <env-dir>
-# $HOME: /app
+#!/bin/sh
 
 set -e
 
-BUILD_DIR=${1:-.}
-CACHE_DIR=${2:-}
-ENV_DIR=${3:-}
+BUN_VERSION="1.1.6"
 
-HEROKU_DIR=$BUILD_DIR/.heroku
-BIN_DIR=$HEROKU_DIR/bin
+echo "-----> Installing Bun $BUN_VERSION"
 
-# To enable the local source build cache path, copy the files and match the build path with the startup path.
-cp -r $BUILD_DIR/* $HOME
-cd $HOME
+curl -fsSL https://bun.sh/install | bash -s -- bun-v$BUN_VERSION
 
-# install bun
-if [ ! -d "$CACHE_DIR/.bun" ]; then
-    echo "-----> Installing Bun"
-    curl -fsSL https://bun.sh/install | bash -s -- --yes
-    mkdir -p "$CACHE_DIR/.bun"
-    cp -R "$HOME/.bun" "$CACHE_DIR/.bun"
-else
-    echo "-----> Using cached Bun"
-    cp -R "$CACHE_DIR/.bun" "$HOME/.bun"
-fi
+export PATH=$HOME/.bun/bin:$PATH
+echo 'export PATH=$HOME/.bun/bin:$PATH' >> $HOME/.profile
 
-# Debug: List the contents of the HOME directory
-echo "-----> HOME directory contents:"
-ls -la $HOME
-
-# Debug: List the contents of the bun installation directory
-echo "-----> Bun installation directory contents:"
-ls -la $HOME/.bun
-
-# Debug: List the contents of the .bun directory
-echo "-----> .bun directory contents:"
-ls -la $HOME/.bun/.bun
-
-# set environment variables
-export BUN_INSTALL=$HOME/.bun
-export PATH=$BUN_INSTALL/bin:$PATH
-
-# Debug: Print the PATH
-echo "-----> PATH: $PATH"
-
-PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
-mkdir -p $(dirname $PROFILE_PATH)
-echo 'export BUN_INSTALL=$HOME/.bun' >> $PROFILE_PATH
-echo 'export PATH=$BUN_INSTALL/bin:$PATH' >> $PROFILE_PATH
-
-# Check if bun binary exists and is executable
-if [ -x "$BUN_INSTALL/bin/bun" ]; then
-    echo "-----> Bun binary found and is executable"
-else
-    echo "-----> Bun binary not found or not executable"
-    exit 1
-fi
-
-# download dependencies
-echo "-----> Installing Dependencies"
-bun install || { echo "-----> Bun install failed"; exit 1; }
-
-# build the project
-if [ -f heroku_build.ts ]; then
-  echo "-----> Running heroku_build.ts"
-  bun run heroku_build.ts || { echo "-----> Bun run heroku_build.ts failed"; exit 1; }
-elif [ -f bun.config.ts ]; then
-  echo "-----> Running Bun build"
-  bun run build || { echo "-----> Bun run build failed"; exit 1; }
-fi
-
-# copy the build back to BUILD_DIR
-cp -r $HOME/* $BUILD_DIR
+echo "PATH after installation: $PATH"

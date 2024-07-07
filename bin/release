@@ -1,11 +1,7 @@
-#!/usr/bin/env bash
-# bin/release <build-dir>
+#!/bin/sh
 
 cat <<EOF
 ---
-config_vars:
-  BUN_INSTALL: /app/.bun
-  PATH: /app/.bun/bin:/usr/local/bin:/usr/bin:/bin
 default_process_types:
-  web: bun run start -p \$PORT
+  web: bun --help
 EOF
