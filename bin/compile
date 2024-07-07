@@ -1,6 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# usage: bin/compile <build-dir> <cache-dir>
 
-set -e
+set -eo pipefail
 
 BUILD_DIR=$1
 CACHE_DIR=$2
@@ -16,15 +17,30 @@ finished() {
     echo "done"
 }
 
-echo "v0.0.7"
+mkdir -p "$BUILD_DIR" "$CACHE_DIR"
+
+echo "v0.0.5"
 echo "BUILD_DIR: $BUILD_DIR"
 echo "CACHE_DIR: $CACHE_DIR"
 echo "ENV_DIR: $ENV_DIR"
 echo "HOME: $HOME"
 
-echo_export_env_vars() {
-  local BUN_INSTALL="\$HOME/.bun"
+if [ ! -d "$CACHE_DIR/.bun" ]; then
+    start "Installing Bun"
+    curl -fsSL https://bun.sh/install | bash
+    finished
+    mkdir -p "$CACHE_DIR/.bun"
+    cp -R "$HOME/.bun" "$CACHE_DIR/.bun"
+else
+    start "Using cached Bun"
+    cp -R "$CACHE_DIR/.bun" "$HOME/.bun"
+    finished
+fi
 
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+echo_export_env_vars() {
   echo "export BUN_INSTALL=\$HOME/.bun"
   echo "export PATH=\$BUN_INSTALL/bin:\$PATH"
 }
@@ -38,13 +54,6 @@ write_profile_d_script() {
     chmod +x "$profile_path"
   finished
 }
-
-start "Installing Bun"
-  curl -fsSL https://bun.sh/install | bash
-finished
-
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
 
 write_profile_d_script
 
