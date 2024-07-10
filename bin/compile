@@ -4,7 +4,7 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.1'
+echo 'BUN-BUILDPACK - v1.0.0'
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
@@ -48,7 +48,12 @@ then
   bun install --production
 
   echo "Building App"
-  bun run -b build
+  if [ -n "$BUILD_COMMAND" ]; then
+    echo "Running custom build command from Config Vars: $BUILD_COMMAND"
+    eval $BUILD_COMMAND
+  else
+    bun run -b build
+  fi
 
   echo "Cleaning up unnecessary files..."
   # Add your cleanup steps here
@@ -63,11 +68,3 @@ fi
 # List all files and directories with their sizes
 # echo "Listing all files and directories with their sizes..."
 # du -ah $BUILD_DIR | sort -rh | head -n 100
-
-# Check for Heroku Config Vars and customize commands if they exist
-if [ -n "$BUILD_COMMAND" ]; then
-  echo "Running custom build command from Config Vars: $BUILD_COMMAND"
-  $BUILD_COMMAND
-else
-  echo "No custom build command found in Config Vars, using default commands."
-fi
