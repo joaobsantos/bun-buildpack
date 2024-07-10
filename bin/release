@@ -1,7 +1,15 @@
 #!/bin/sh
 
-cat <<EOF
+if [ -n "$START_COMMAND" ]; then
+  cat <<EOF
+---
+default_process_types:
+  web: $START_COMMAND
+EOF
+else
+  cat <<EOF
 ---
 default_process_types:
   web: bun -b start
 EOF
+fi

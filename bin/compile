@@ -63,3 +63,11 @@ fi
 # List all files and directories with their sizes
 # echo "Listing all files and directories with their sizes..."
 # du -ah $BUILD_DIR | sort -rh | head -n 100
+
+# Check for Heroku Config Vars and customize commands if they exist
+if [ -n "$BUILD_COMMAND" ]; then
+  echo "Running custom build command from Config Vars: $BUILD_COMMAND"
+  $BUILD_COMMAND
+else
+  echo "No custom build command found in Config Vars, using default commands."
+fi
