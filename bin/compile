@@ -4,7 +4,7 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.0'
+echo 'BUN-BUILDPACK - v1.0.1'
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
