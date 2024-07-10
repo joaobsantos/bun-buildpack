@@ -63,3 +63,18 @@ fi
 # List all files and directories with their sizes
 # echo "Listing all files and directories with their sizes..."
 # du -ah $BUILD_DIR | sort -rh | head -n 100
+
+# Check for .env file and customize commands if exists
+if [ -f $ENV_DIR/.env ]
+then
+  echo "Found .env file, customizing commands..."
+  # Load .env variables
+  export $(cat $ENV_DIR/.env | xargs)
+  # Use variables from .env to alter build commands if necessary
+  if [ -n "$BUILD_COMMAND" ]; then
+    echo "Running custom build command: $BUILD_COMMAND"
+    $BUILD_COMMAND
+  fi
+else
+  echo "No .env file found, using default commands."
+fi
