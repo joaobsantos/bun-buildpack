@@ -69,7 +69,7 @@ if [ -f package.json ]; then
     bun run -b build
   fi
 
-  echo "Cleaning up unnecessary files..."
+  # echo "Cleaning up unnecessary files..."
   # Add your cleanup steps here
   # rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
   # rm -rf $BUILD_DIR/tmp
