@@ -50,8 +50,9 @@ NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
 
 curl -O $NODE_URL
 tar -xf $NODE_TAR || { echo "Error extracting Node.js tarball"; exit 1; }
-mv $NODE_DISTRO $HEROKU_DIR/node
-rm $NODE_TAR
+mkdir -p $HEROKU_DIR/node
+mv $NODE_DISTRO/* $HEROKU_DIR/node
+rm -rf $NODE_TAR $NODE_DISTRO
 
 # Add Node.js to PATH
 export PATH="$HEROKU_DIR/node/bin:$PATH"
