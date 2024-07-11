@@ -41,21 +41,25 @@ elif [ -f runtime.txt ]; then
 fi
 echo $INSTALL_VERSION_OPTION
 
-# Install Node.js using prebuilt binaries
-echo "Installing Node.js..."
-NODE_VERSION=${NODE_VERSION:-20.9.0} # Default to Node.js 20.9.0 if NODE_VERSION is not set
-NODE_DISTRO="node-v$NODE_VERSION-linux-x64"
-NODE_TAR="$NODE_DISTRO.tar.xz"
-NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
+# Install Node.js using prebuilt binaries if NODE is true
+if [ "$node" = "true" ]; then
+  echo "NODE config var is true, installing Node.js..."
+  NODE_VERSION=${NODE_VERSION:-20.9.0} # Default to Node.js 20.9.0 if NODE_VERSION is not set
+  NODE_DISTRO="node-v$NODE_VERSION-linux-x64"
+  NODE_TAR="$NODE_DISTRO.tar.xz"
+  NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
 
-curl -O $NODE_URL
-tar -xf $NODE_TAR || { echo "Error extracting Node.js tarball"; exit 1; }
-mkdir -p $HEROKU_DIR/node
-mv $NODE_DISTRO/* $HEROKU_DIR/node
-rm -rf $NODE_TAR $NODE_DISTRO
+  curl -O $NODE_URL
+  tar -xf $NODE_TAR || { echo "Error extracting Node.js tarball"; exit 1; }
+  mkdir -p $HEROKU_DIR/node
+  mv $NODE_DISTRO/* $HEROKU_DIR/node
+  rm -rf $NODE_TAR $NODE_DISTRO
 
-# Add Node.js to PATH
-export PATH="$HEROKU_DIR/node/bin:$PATH"
+  # Add Node.js to PATH
+  export PATH="$HEROKU_DIR/node/bin:$PATH"
+else
+  echo "NODE config var is not set to true, skipping Node.js installation..."
+fi
 
 # Install Bun
 export BUN_INSTALL=$BUILD_DIR/.heroku
@@ -88,12 +92,16 @@ if [ -f package.json ]; then
     bun run build
   fi
 
-  echo "Cleaning up unnecessary files..."
-  # Add your cleanup steps here
-  # rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
-  # rm -rf $BUILD_DIR/tmp
-  # rm -rf $BUILD_DIR/.cache
-  # rm -rf $HEROKU_DIR/install/cache
-  # rm -rf $HEROKU_DIR/install
-  # Add any other directories you don't need in your final slug
+  # Conditional cleanup
+  if [ "$clean" = "true" ]; then
+    echo "CLEAN config var is true, cleaning up unnecessary files..."
+    rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
+    rm -rf $BUILD_DIR/tmp
+    rm -rf $BUILD_DIR/.cache
+    rm -rf $HEROKU_DIR/install/cache
+    rm -rf $HEROKU_DIR/install
+    # Add any other directories you don't need in your final slug
+  else
+    echo "CLEAN config var is not set to true, skipping cleanup..."
+  fi
 fi
