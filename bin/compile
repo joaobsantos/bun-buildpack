@@ -75,6 +75,7 @@ set +e
 # Download dependencies
 if [ -f package.json ]; then
   echo "Installing dependencies..."
+  echo "node -v"
   cd $BUILD_DIR
   bun install
   # bun install --production
@@ -84,7 +85,7 @@ if [ -f package.json ]; then
     echo "Running custom build command from Config Vars: $BUILD_COMMAND"
     eval $BUILD_COMMAND
   else
-    bun run -b build
+    bun run build
   fi
 
   echo "Cleaning up unnecessary files..."
