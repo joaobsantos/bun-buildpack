@@ -43,15 +43,16 @@ echo $INSTALL_VERSION_OPTION
 
 # Install Node.js using prebuilt binaries
 echo "Installing Node.js..."
-NODE_VERSION="20.9.0" # Default to Node.js 14.17.0 if NODE_VERSION is not set
+NODE_VERSION=${NODE_VERSION:-20.9.0} # Default to Node.js 20.9.0 if NODE_VERSION is not set
 NODE_DISTRO="node-v$NODE_VERSION-linux-x64"
 NODE_TAR="$NODE_DISTRO.tar.xz"
 NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
 
 curl -O $NODE_URL
 tar -xf $NODE_TAR || { echo "Error extracting Node.js tarball"; exit 1; }
-mv $NODE_DISTRO $HEROKU_DIR/node
-rm $NODE_TAR
+mkdir -p $HEROKU_DIR/node
+mv $NODE_DISTRO/* $HEROKU_DIR/node
+rm -rf $NODE_TAR $NODE_DISTRO
 
 # Add Node.js to PATH
 export PATH="$HEROKU_DIR/node/bin:$PATH"
