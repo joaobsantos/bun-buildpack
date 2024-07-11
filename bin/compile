@@ -41,11 +41,21 @@ elif [ -f runtime.txt ]; then
 fi
 echo $INSTALL_VERSION_OPTION
 
-# Install Node.js
+# Install Node.js using prebuilt binaries
+# https://nodejs.org/dist/v20.9.0/node-v20.9.0.tar.xz
 echo "Installing Node.js..."
-NODE_VERSION=${NODE_VERSION:-20.x} # Default to Node.js 20.x if NODE_VERSION is not set
-curl -sL https://deb.nodesource.com/setup_$NODE_VERSION | bash -
-apt-get install -y nodejs
+NODE_VERSION=${NODE_VERSION:20.9.0} # Default to Node.js 14.17.0 if NODE_VERSION is not set
+NODE_DISTRO="node-v$NODE_VERSION-linux-x64"
+NODE_TAR="$NODE_DISTRO.tar.xz"
+NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
+
+curl -O $NODE_URL
+tar -xf $NODE_TAR
+mv $NODE_DISTRO $HEROKU_DIR/node
+rm $NODE_TAR
+
+# Add Node.js to PATH
+export PATH="$HEROKU_DIR/node/bin:$PATH"
 
 # Install Bun
 export BUN_INSTALL=$BUILD_DIR/.heroku
@@ -56,6 +66,7 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 # Set environment variables
 PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
 mkdir -p $(dirname $PROFILE_PATH)
+echo 'export PATH="$HOME/.heroku/node/bin:$PATH"' >> $PROFILE_PATH
 echo 'export PATH="$HOME/.heroku/bin:$PATH"' >> $PROFILE_PATH
 echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH
 
