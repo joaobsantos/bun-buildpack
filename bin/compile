@@ -33,6 +33,7 @@ export_env_dir $ENV_DIR
 cp -rT $BUILD_DIR $HOME
 cd $HOME
 
+# Determine Bun version to install
 if [ -f runtime.bun.txt ]; then
   INSTALL_VERSION_OPTION="-s bun-$(cat runtime.bun.txt)"
 elif [ -f runtime.txt ]; then
@@ -40,7 +41,13 @@ elif [ -f runtime.txt ]; then
 fi
 echo $INSTALL_VERSION_OPTION
 
-# Install bun
+# Install Node.js
+echo "Installing Node.js..."
+NODE_VERSION=${NODE_VERSION:-20.x} # Default to Node.js 20.x if NODE_VERSION is not set
+curl -sL https://deb.nodesource.com/setup_$NODE_VERSION | bash -
+apt-get install -y nodejs
+
+# Install Bun
 export BUN_INSTALL=$BUILD_DIR/.heroku
 export BUN_DIR=$BUILD_DIR/.heroku/cache
 curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION
