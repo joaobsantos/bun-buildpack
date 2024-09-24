@@ -13,6 +13,16 @@ ENV_DIR=${3:-}
 HEROKU_DIR=$BUILD_DIR/.heroku
 BIN_DIR=$HEROKU_DIR/bin
 
+# Define variables
+BP_CLEAN=${CLEAN:-true}
+BP_NODE=${NODE:-true}
+BP_NODE_VERSION=${NODE_VERSION:-20.9.0}
+
+# New variables for custom commands
+BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
+BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run build"}
+BP_START_COMMAND=${START_COMMAND:-"bun run start"}
+
 # Function to export env vars from ENV_DIR
 export_env_dir() {
   env_dir=$1
@@ -41,13 +51,12 @@ elif [ -f runtime.txt ]; then
 fi
 echo $INSTALL_VERSION_OPTION
 
-# Install Node.js using prebuilt binaries if NODE is true
-if [ "$node" = "true" ]; then
+# Install Node.js using prebuilt binaries if BP_NODE is true
+if $BP_NODE; then
   echo "NODE config var is true, installing Node.js..."
-  NODE_VERSION=${NODE_VERSION:-20.9.0} # Default to Node.js 20.9.0 if NODE_VERSION is not set
-  NODE_DISTRO="node-v$NODE_VERSION-linux-x64"
+  NODE_DISTRO="node-v$BP_NODE_VERSION-linux-x64"
   NODE_TAR="$NODE_DISTRO.tar.xz"
-  NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TAR"
+  NODE_URL="https://nodejs.org/dist/v$BP_NODE_VERSION/$NODE_TAR"
 
   curl -O $NODE_URL
   tar -xf $NODE_TAR || { echo "Error extracting Node.js tarball"; exit 1; }
@@ -80,19 +89,13 @@ set +e
 if [ -f package.json ]; then
   echo "Installing dependencies..."
   cd $BUILD_DIR
-  bun install
-  # bun install --production
+  eval $BP_INSTALL_COMMAND
 
   echo "Building App"
-  if [ -n "$BUILD_COMMAND" ]; then
-    echo "Running custom build command from Config Vars: $BUILD_COMMAND"
-    eval $BUILD_COMMAND
-  else
-    bun run build
-  fi
+  eval $BP_BUILD_COMMAND
 
   # Conditional cleanup
-  if [ "$clean" = "true" ]; then
+  if $BP_CLEAN; then
     echo "CLEAN config var is true, cleaning up unnecessary files..."
     rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
     rm -rf $BUILD_DIR/tmp
@@ -104,3 +107,7 @@ if [ -f package.json ]; then
     echo "CLEAN config var is not set to true, skipping cleanup..."
   fi
 fi
+
+# Add start command to .profile.d
+echo "Adding start command to .profile.d"
+echo "eval $BP_START_COMMAND" >> $PROFILE_PATH
