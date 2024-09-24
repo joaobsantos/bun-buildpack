@@ -79,7 +79,6 @@ set +e
 # Download dependencies
 if [ -f package.json ]; then
   echo "Installing dependencies..."
-  echo "node -v"
   cd $BUILD_DIR
   bun install
   # bun install --production
