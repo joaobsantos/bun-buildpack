@@ -4,11 +4,29 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.0'
+# Enhanced logging function
+log() {
+    echo "-----> $*"
+}
+
+error() {
+    echo " !     $*" >&2
+    exit 1
+}
+
+debug() {
+    echo "       [DEBUG] $*"
+}
+
+log "BUN-BUILDPACK - v1.0.0"
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
+
+debug "Build directory: $BUILD_DIR"
+debug "Cache directory: $CACHE_DIR"
+debug "Environment directory: $ENV_DIR"
 
 HEROKU_DIR=$BUILD_DIR/.heroku
 BIN_DIR=$HEROKU_DIR/bin
@@ -20,7 +38,7 @@ BP_NODE_VERSION=${NODE_VERSION:-20.9.0}
 
 # New variables for custom commands - using the correct commands from Heroku config
 BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
-BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run web:portal-paciente:build"}
+BP_BUILD_COMMAND=${BUILD_COMMAND:-"nx build @newsoftds/portal-paciente"}
 BP_START_COMMAND=${START_COMMAND:-"bun run web:portal-paciente:serve"}
 
 # Function to export env vars from ENV_DIR
@@ -32,16 +50,19 @@ export_env_dir() {
     for e in $(ls $env_dir); do
       echo "$e" | grep -E "$acceptlist_regex" | grep -qvE "$denylist_regex" &&
       export "$e=$(cat $env_dir/$e)"
+      debug "Exported env var: $e"
     done
   fi
 }
 
 # Export Heroku Config Vars
+log "Exporting environment variables"
 export_env_dir $ENV_DIR
 
 # To enable the local source build cache path, copy the files and match the build path with the startup path.
-cp -rT $BUILD_DIR $HOME
-cd $HOME
+log "Copying build files to home directory"
+cp -rT $BUILD_DIR $HOME || error "Failed to copy build files"
+cd $HOME || error "Failed to change to home directory"
 
 # Determine Bun version to install
 if [ -f runtime.bun.txt ]; then
@@ -49,90 +70,118 @@ if [ -f runtime.bun.txt ]; then
 elif [ -f runtime.txt ]; then
   INSTALL_VERSION_OPTION="-s bun-$(cat runtime.txt)"
 fi
-echo $INSTALL_VERSION_OPTION
+debug "Bun install version option: $INSTALL_VERSION_OPTION"
 
 # Install Node.js using prebuilt binaries if BP_NODE is true
 if $BP_NODE; then
-  echo "NODE config var is true, installing Node.js..."
+  log "Installing Node.js..."
   NODE_DISTRO="node-v$BP_NODE_VERSION-linux-x64"
   NODE_TAR="$NODE_DISTRO.tar.xz"
   NODE_URL="https://nodejs.org/dist/v$BP_NODE_VERSION/$NODE_TAR"
 
-  curl -O $NODE_URL
-  tar -xf $NODE_TAR || { echo "Error extracting Node.js tarball"; exit 1; }
+  curl -O $NODE_URL || error "Failed to download Node.js"
+  tar -xf $NODE_TAR || error "Failed to extract Node.js tarball"
   mkdir -p $HEROKU_DIR/node
   mv $NODE_DISTRO/* $HEROKU_DIR/node
   rm -rf $NODE_TAR $NODE_DISTRO
 
   # Add Node.js to PATH
   export PATH="$HEROKU_DIR/node/bin:$PATH"
+  debug "Node.js installation complete"
 else
-  echo "NODE config var is not set to true, skipping Node.js installation..."
+  log "Node.js installation skipped (NODE=false)"
 fi
 
 # Install Bun
+log "Installing Bun..."
 export BUN_INSTALL=$BUILD_DIR/.heroku
 export BUN_DIR=$BUILD_DIR/.heroku/cache
-curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION
+curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION || error "Failed to install Bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+debug "Bun installation complete"
 
 # Set environment variables
+log "Setting up environment variables"
 PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
 mkdir -p $(dirname $PROFILE_PATH)
-echo 'export PATH="$HOME/.heroku/node/bin:$PATH"' >> $PROFILE_PATH
-echo 'export PATH="$HOME/.heroku/bin:$PATH"' >> $PROFILE_PATH
-echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH
+{
+    echo 'export PATH="$HOME/.heroku/node/bin:$PATH"'
+    echo 'export PATH="$HOME/.heroku/bin:$PATH"'
+    echo 'export BUN_DIR="$HOME/.heroku/cache"'
+} >> $PROFILE_PATH
 
 # Download dependencies
 if [ -f package.json ]; then
-  echo "Installing dependencies..."
-  cd $BUILD_DIR
-  eval $BP_INSTALL_COMMAND || { echo "Failed to install dependencies"; exit 1; }
+    log "Installing dependencies..."
+    cd $BUILD_DIR || error "Failed to change to build directory"
+    debug "Running install command: $BP_INSTALL_COMMAND"
+    eval $BP_INSTALL_COMMAND || error "Failed to install dependencies"
 
-  echo "Building App"
-  # Set NODE_ENV explicitly for the build
-  export NODE_ENV=production
-  eval $BP_BUILD_COMMAND || { echo "Build failed"; exit 1; }
+    log "Building application..."
+    # Set NODE_ENV explicitly for the build
+    export NODE_ENV=production
+    debug "Running build command: $BP_BUILD_COMMAND"
+    eval $BP_BUILD_COMMAND || error "Build failed"
 
-  # Create Procfile if it doesn't exist
-  if [ ! -f Procfile ]; then
-    echo "Creating Procfile..."
-    echo "web: $BP_START_COMMAND" > Procfile
-  fi
+    # Create Procfile if it doesn't exist
+    if [ ! -f Procfile ]; then
+        log "Creating Procfile..."
+        echo "web: $BP_START_COMMAND" > Procfile
+        debug "Created Procfile with command: $BP_START_COMMAND"
+    fi
 
-  # Conditional cleanup
-  if $BP_CLEAN; then
-    echo "CLEAN config var is true, cleaning up unnecessary files..."
-    rm -rf $BUILD_DIR/node_modules
-    rm -rf $BUILD_DIR/tmp
-    rm -rf $BUILD_DIR/.cache
-    rm -rf $HEROKU_DIR/install/cache
-    rm -rf $HEROKU_DIR/install
-  else
-    echo "CLEAN config var is not set to true, skipping cleanup..."
-  fi
+    # Conditional cleanup
+    if $BP_CLEAN; then
+        log "Cleaning up build artifacts..."
+        debug "Current directory before cleanup: $(pwd)"
+        debug "Contents of build directory before cleanup: $(ls -la $BUILD_DIR)"
+        
+        rm -rf $BUILD_DIR/node_modules || debug "Failed to remove node_modules"
+        rm -rf $BUILD_DIR/tmp || debug "Failed to remove tmp"
+        rm -rf $BUILD_DIR/.cache || debug "Failed to remove .cache"
+        rm -rf $HEROKU_DIR/install/cache || debug "Failed to remove install cache"
+        rm -rf $HEROKU_DIR/install || debug "Failed to remove install directory"
+        
+        debug "Contents of build directory after cleanup: $(ls -la $BUILD_DIR)"
+    else
+        log "Cleanup skipped (CLEAN=false)"
+    fi
 fi
 
 # Ensure the start command is properly set in the Procfile
+log "Configuring Procfile..."
 if [ -f Procfile ]; then
-  echo "Procfile exists, ensuring start command is correct..."
-  if ! grep -q "^web:" Procfile; then
-    echo "web: $BP_START_COMMAND" >> Procfile
-  fi
+    debug "Existing Procfile found"
+    if ! grep -q "^web:" Procfile; then
+        echo "web: $BP_START_COMMAND" >> Procfile
+        debug "Added web process to Procfile"
+    fi
 else
-  echo "Creating Procfile with start command..."
-  echo "web: $BP_START_COMMAND" > Procfile
+    debug "Creating new Procfile"
+    echo "web: $BP_START_COMMAND" > Procfile
 fi
 
 # Add start command to .profile.d for local development
-echo "Adding start command to .profile.d"
-echo "export START_COMMAND=\"$BP_START_COMMAND\"" >> $PROFILE_PATH
-echo "export PORT=\${PORT:-5000}" >> $PROFILE_PATH
+log "Configuring startup environment..."
+{
+    echo "export START_COMMAND=\"$BP_START_COMMAND\""
+    echo "export PORT=\${PORT:-5000}"
+} >> $PROFILE_PATH
 
 # Create a release script
+log "Creating release script..."
 RELEASE_SCRIPT="$BUILD_DIR/.release"
-echo "#!/usr/bin/env bash" > $RELEASE_SCRIPT
-echo "$BP_START_COMMAND" >> $RELEASE_SCRIPT
+{
+    echo "#!/usr/bin/env bash"
+    echo "echo 'Starting application...'"
+    echo "cd $BUILD_DIR"
+    echo "$BP_START_COMMAND"
+} > $RELEASE_SCRIPT
 chmod +x $RELEASE_SCRIPT
+debug "Release script created and made executable"
 
-echo "Build completed successfully!"
+log "Build completed successfully!"
+debug "Final directory structure:"
+debug "$(ls -la $BUILD_DIR)"
+debug "Final Procfile contents:"
+debug "$(cat Procfile)"
