@@ -126,8 +126,8 @@ if [ -f package.json ]; then
     # Create Procfile if it doesn't exist
     if [ ! -f Procfile ]; then
         log "Creating Procfile..."
-        echo "web: $BP_START_COMMAND" > Procfile
-        debug "Created Procfile with command: $BP_START_COMMAND"
+        echo "web: cd $BUILD_DIR/web/packages/portal-paciente && $BP_START_COMMAND" > Procfile
+        debug "Created Procfile with command: cd $BUILD_DIR/web/packages/portal-paciente && $BP_START_COMMAND"
     fi
 
     # Conditional cleanup
@@ -136,13 +136,34 @@ if [ -f package.json ]; then
         debug "Current directory before cleanup: $(pwd)"
         debug "Contents of build directory before cleanup: $(ls -la $BUILD_DIR)"
         
+        # Save the build output before cleanup
+        if [ -d "$BUILD_DIR/web/packages/portal-paciente/build" ]; then
+            debug "Preserving build output"
+            mkdir -p "$BUILD_DIR/preserved-build"
+            cp -r "$BUILD_DIR/web/packages/portal-paciente/build" "$BUILD_DIR/preserved-build/"
+            debug "Build output preserved at: $BUILD_DIR/preserved-build"
+        else
+            debug "Warning: Build directory not found at $BUILD_DIR/web/packages/portal-paciente/build"
+            ls -la "$BUILD_DIR/web/packages/portal-paciente/" || debug "Cannot list portal-paciente directory"
+        fi
+        
         rm -rf $BUILD_DIR/node_modules || debug "Failed to remove node_modules"
         rm -rf $BUILD_DIR/tmp || debug "Failed to remove tmp"
         rm -rf $BUILD_DIR/.cache || debug "Failed to remove .cache"
         rm -rf $HEROKU_DIR/install/cache || debug "Failed to remove install cache"
         rm -rf $HEROKU_DIR/install || debug "Failed to remove install directory"
         
+        # Restore the build output after cleanup
+        if [ -d "$BUILD_DIR/preserved-build/build" ]; then
+            debug "Restoring build output"
+            mkdir -p "$BUILD_DIR/web/packages/portal-paciente"
+            mv "$BUILD_DIR/preserved-build/build" "$BUILD_DIR/web/packages/portal-paciente/"
+            rm -rf "$BUILD_DIR/preserved-build"
+            debug "Build output restored"
+        fi
+        
         debug "Contents of build directory after cleanup: $(ls -la $BUILD_DIR)"
+        debug "Contents of portal-paciente directory after cleanup: $(ls -la $BUILD_DIR/web/packages/portal-paciente/)"
     else
         log "Cleanup skipped (CLEAN=false)"
     fi
@@ -153,12 +174,12 @@ log "Configuring Procfile..."
 if [ -f Procfile ]; then
     debug "Existing Procfile found"
     if ! grep -q "^web:" Procfile; then
-        echo "web: $BP_START_COMMAND" >> Procfile
+        echo "web: cd $BUILD_DIR/web/packages/portal-paciente && $BP_START_COMMAND" >> Procfile
         debug "Added web process to Procfile"
     fi
 else
     debug "Creating new Procfile"
-    echo "web: $BP_START_COMMAND" > Procfile
+    echo "web: cd $BUILD_DIR/web/packages/portal-paciente && $BP_START_COMMAND" > Procfile
 fi
 
 # Add start command to .profile.d for local development
@@ -174,7 +195,7 @@ RELEASE_SCRIPT="$BUILD_DIR/.release"
 {
     echo "#!/usr/bin/env bash"
     echo "echo 'Starting application...'"
-    echo "cd $BUILD_DIR"
+    echo "cd $BUILD_DIR/web/packages/portal-paciente"
     echo "$BP_START_COMMAND"
 } > $RELEASE_SCRIPT
 chmod +x $RELEASE_SCRIPT
@@ -185,3 +206,5 @@ debug "Final directory structure:"
 debug "$(ls -la $BUILD_DIR)"
 debug "Final Procfile contents:"
 debug "$(cat Procfile)"
+debug "Contents of portal-paciente directory:"
+debug "$(ls -la $BUILD_DIR/web/packages/portal-paciente/)"
