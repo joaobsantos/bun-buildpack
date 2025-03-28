@@ -15,13 +15,13 @@ BIN_DIR=$HEROKU_DIR/bin
 
 # Define variables
 BP_CLEAN=${CLEAN:-true}
-BP_NODE=${NODE:-true}
+BP_NODE=${NODE:-false}
 BP_NODE_VERSION=${NODE_VERSION:-20.9.0}
 
-# New variables for custom commands
+# New variables for custom commands - using the correct commands from Heroku config
 BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
-BP_BUILD_COMMAND=${BUILD_COMMAND:-"cd ./web/packages/portal-paciente && NODE_ENV=production bun run build"}
-BP_START_COMMAND=${START_COMMAND:-"bun run start"}
+BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run web:portal-paciente:build"}
+BP_START_COMMAND=${START_COMMAND:-"bun run web:portal-paciente:serve"}
 
 # Function to export env vars from ENV_DIR
 export_env_dir() {
@@ -97,7 +97,7 @@ if [ -f package.json ]; then
   # Create Procfile if it doesn't exist
   if [ ! -f Procfile ]; then
     echo "Creating Procfile..."
-    echo "web: cd ./web/packages/portal-paciente && bun run start" > Procfile
+    echo "web: $BP_START_COMMAND" > Procfile
   fi
 
   # Conditional cleanup
@@ -117,23 +117,22 @@ fi
 if [ -f Procfile ]; then
   echo "Procfile exists, ensuring start command is correct..."
   if ! grep -q "^web:" Procfile; then
-    echo "web: cd ./web/packages/portal-paciente && bun run start" >> Procfile
+    echo "web: $BP_START_COMMAND" >> Procfile
   fi
 else
   echo "Creating Procfile with start command..."
-  echo "web: cd ./web/packages/portal-paciente && bun run start" > Procfile
+  echo "web: $BP_START_COMMAND" > Procfile
 fi
 
 # Add start command to .profile.d for local development
 echo "Adding start command to .profile.d"
-echo "export START_COMMAND=\"cd ./web/packages/portal-paciente && bun run start\"" >> $PROFILE_PATH
+echo "export START_COMMAND=\"$BP_START_COMMAND\"" >> $PROFILE_PATH
 echo "export PORT=\${PORT:-5000}" >> $PROFILE_PATH
 
 # Create a release script
 RELEASE_SCRIPT="$BUILD_DIR/.release"
 echo "#!/usr/bin/env bash" > $RELEASE_SCRIPT
-echo "cd ./web/packages/portal-paciente" >> $RELEASE_SCRIPT
-echo "bun run start" >> $RELEASE_SCRIPT
+echo "$BP_START_COMMAND" >> $RELEASE_SCRIPT
 chmod +x $RELEASE_SCRIPT
 
 echo "Build completed successfully!"
