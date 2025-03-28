@@ -83,18 +83,21 @@ echo 'export PATH="$HOME/.heroku/node/bin:$PATH"' >> $PROFILE_PATH
 echo 'export PATH="$HOME/.heroku/bin:$PATH"' >> $PROFILE_PATH
 echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH
 
-set +e
-
 # Download dependencies
 if [ -f package.json ]; then
   echo "Installing dependencies..."
   cd $BUILD_DIR
-  eval $BP_INSTALL_COMMAND
+  eval $BP_INSTALL_COMMAND || { echo "Failed to install dependencies"; exit 1; }
 
   echo "Building App"
   # Set NODE_ENV explicitly for the build
   export NODE_ENV=production
-  eval $BP_BUILD_COMMAND
+  eval $BP_BUILD_COMMAND || { echo "Build failed"; exit 1; }
+
+  # Create Procfile if it doesn't exist
+  if [ ! -f Procfile ]; then
+    echo "web: $BP_START_COMMAND" > Procfile
+  fi
 
   # Conditional cleanup
   if $BP_CLEAN; then
@@ -109,6 +112,20 @@ if [ -f package.json ]; then
   fi
 fi
 
-# Add start command to .profile.d
+# Ensure the start command is properly set in the Procfile
+if [ -f Procfile ]; then
+  echo "Procfile exists, ensuring start command is correct..."
+  if ! grep -q "^web:" Procfile; then
+    echo "web: $BP_START_COMMAND" >> Procfile
+  fi
+else
+  echo "Creating Procfile with start command..."
+  echo "web: $BP_START_COMMAND" > Procfile
+fi
+
+# Add start command to .profile.d for local development
 echo "Adding start command to .profile.d"
-echo "eval $BP_START_COMMAND" >> $PROFILE_PATH
+echo "export START_COMMAND=\"$BP_START_COMMAND\"" >> $PROFILE_PATH
+echo "export PORT=\${PORT:-5000}" >> $PROFILE_PATH
+
+echo "Build completed successfully!"
