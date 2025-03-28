@@ -20,7 +20,7 @@ BP_NODE_VERSION=${NODE_VERSION:-20.9.0}
 
 # New variables for custom commands
 BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
-BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run build"}
+BP_BUILD_COMMAND=${BUILD_COMMAND:-"cd ./web/packages/portal-paciente && NODE_ENV=production bun run build"}
 BP_START_COMMAND=${START_COMMAND:-"bun run start"}
 
 # Function to export env vars from ENV_DIR
@@ -92,17 +92,18 @@ if [ -f package.json ]; then
   eval $BP_INSTALL_COMMAND
 
   echo "Building App"
+  # Set NODE_ENV explicitly for the build
+  export NODE_ENV=production
   eval $BP_BUILD_COMMAND
 
   # Conditional cleanup
   if $BP_CLEAN; then
     echo "CLEAN config var is true, cleaning up unnecessary files..."
-    rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
+    rm -rf $BUILD_DIR/node_modules
     rm -rf $BUILD_DIR/tmp
     rm -rf $BUILD_DIR/.cache
     rm -rf $HEROKU_DIR/install/cache
     rm -rf $HEROKU_DIR/install
-    # Add any other directories you don't need in your final slug
   else
     echo "CLEAN config var is not set to true, skipping cleanup..."
   fi
