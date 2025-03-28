@@ -96,7 +96,8 @@ if [ -f package.json ]; then
 
   # Create Procfile if it doesn't exist
   if [ ! -f Procfile ]; then
-    echo "web: $BP_START_COMMAND" > Procfile
+    echo "Creating Procfile..."
+    echo "web: cd ./web/packages/portal-paciente && bun run start" > Procfile
   fi
 
   # Conditional cleanup
@@ -116,16 +117,23 @@ fi
 if [ -f Procfile ]; then
   echo "Procfile exists, ensuring start command is correct..."
   if ! grep -q "^web:" Procfile; then
-    echo "web: $BP_START_COMMAND" >> Procfile
+    echo "web: cd ./web/packages/portal-paciente && bun run start" >> Procfile
   fi
 else
   echo "Creating Procfile with start command..."
-  echo "web: $BP_START_COMMAND" > Procfile
+  echo "web: cd ./web/packages/portal-paciente && bun run start" > Procfile
 fi
 
 # Add start command to .profile.d for local development
 echo "Adding start command to .profile.d"
-echo "export START_COMMAND=\"$BP_START_COMMAND\"" >> $PROFILE_PATH
+echo "export START_COMMAND=\"cd ./web/packages/portal-paciente && bun run start\"" >> $PROFILE_PATH
 echo "export PORT=\${PORT:-5000}" >> $PROFILE_PATH
+
+# Create a release script
+RELEASE_SCRIPT="$BUILD_DIR/.release"
+echo "#!/usr/bin/env bash" > $RELEASE_SCRIPT
+echo "cd ./web/packages/portal-paciente" >> $RELEASE_SCRIPT
+echo "bun run start" >> $RELEASE_SCRIPT
+chmod +x $RELEASE_SCRIPT
 
 echo "Build completed successfully!"
