@@ -9,7 +9,5 @@ EOF
 else
   cat <<EOF
 ---
-default_process_types:
-  web: bun start
 EOF
 fi
