@@ -292,11 +292,24 @@ Workspace documentation: https://bun.com/docs/install/workspaces
 - ✅ Validates `package.json` workspace configuration
 - ✅ Retries installation with verbose logging if first attempt fails
 - ✅ Regenerates lockfile if needed
+- ✅ Removes conflicting lockfiles from dist directory
+- ✅ Validates generated package.json has no workspace references
+
+The new debugging output will show:
+```bash
+📦 Installing production dependencies in build output
+ℹ️  Files in dist directory: [lists all files]
+ℹ️  Installing 17 production dependencies (from generated package.json)
+ℹ️  Found lockfile in dist directory - removing to avoid workspace conflicts
+ℹ️  No workspace: references found in generated package.json ✅
+ℹ️  Running: bun install --production --no-save --no-optional
+```
 
 Common causes:
 1. **Missing workspace packages**: Ensure all referenced packages exist in the monorepo
-2. **Incorrect `workspace:*` usage**: Use `workspace:*` only for internal monorepo packages, not external NPM dependencies
-3. **Lockfile issues**: The buildpack will regenerate the lockfile automatically if needed
+2. **Incorrect `workspace:*` usage**: Use `workspace:*` only for internal monorepo packages, not external NPM dependencies  
+3. **Lockfile conflicts**: The buildpack automatically removes conflicting lockfiles from the dist directory
+4. **Nx generatePackageJson issues**: Ensure your `project.json` has `"generatePackageJson": true`
 
 ### Bun installation fails (404 error)
 ```

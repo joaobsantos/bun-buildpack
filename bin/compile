@@ -316,13 +316,32 @@ log_info "Generated package.json found: $(wc -l < $DIST_PATH/package.json) lines
 log_step "Installing production dependencies in build output"
 cd "$DIST_PATH"
 
+# Debug what files exist in dist directory
+log_info "Files in dist directory:"
+ls -la
+
 # Show what dependencies will be installed
 DEP_COUNT=$(cat package.json | bun -e 'const p=JSON.parse(await Bun.stdin.text()); console.log(Object.keys(p.dependencies||{}).length)')
-log_info "Installing $DEP_COUNT production dependencies (workspace:* resolved to actual versions)"
+log_info "Installing $DEP_COUNT production dependencies (from generated package.json)"
 
-# Install dependencies (Bun will resolve workspace:* to actual versions)
-bun install --production --no-save
-log_success "Production dependencies installed: $(du -sh node_modules | cut -f1) in node_modules"
+# Check if there are any lockfiles that might cause workspace issues
+if [ -f bun.lock ] || [ -f bun.lockb ]; then
+  log_info "Found lockfile in dist directory - removing to avoid workspace conflicts"
+  rm -f bun.lock bun.lockb
+fi
+
+# Check for any workspace references in package.json
+if grep -q "workspace:" package.json; then
+  log_error "Found workspace: references in generated package.json - this should not happen!"
+  grep "workspace:" package.json || true
+else
+  log_info "No workspace: references found in generated package.json ✅"
+fi
+
+# Install dependencies with explicit flags to avoid workspace resolution
+log_info "Running: bun install --production --no-save --no-optional"
+bun install --production --no-save --no-optional
+log_success "Production dependencies installed: $(du -sh node_modules 2>/dev/null | cut -f1 || echo "unknown size") in node_modules"
 
 # 🧹 Cleanup to reduce slug size
 cd $HOME

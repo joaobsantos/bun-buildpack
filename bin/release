@@ -5,15 +5,21 @@
 BUILD_DIR=${1:-.}
 ENV_DIR=${3:-}
 
-# Export environment variables from Heroku
+# Export environment variables from Heroku (use the proven function from compile script)
 export_env_dir() {
-  if [ -d "$1" ]; then
-    for e in $(ls $1); do
-      case $e in
-        PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH) ;;
-        *) export "$e=$(cat $1/$e)" ;;
-      esac
+  env_dir=$1
+  acceptlist_regex=${2:-''}
+  denylist_regex=${3:-'^(PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH)$'}
+  if [ -d "$env_dir" ]; then
+    echo "🔍 Reading env vars from: $env_dir" >&2
+    for e in $(ls $env_dir); do
+      echo "   📋 Found env var: $e" >&2
+      echo "$e" | grep -E "$acceptlist_regex" | grep -qvE "$denylist_regex" &&
+      export "$e=$(cat $env_dir/$e)"
+      echo "   ✅ Exported: $e=$(cat $env_dir/$e)" >&2
     done
+  else
+    echo "❌ ENV_DIR not found: $env_dir" >&2
   fi
 }
 
@@ -24,10 +30,19 @@ BP_BUILD=${BP_BUILD}
 BP_START=${BP_START}
 BP_NODE=${BP_NODE:-"false"}
 
+# Debug environment variables
+echo "🔍 Environment variable check:" >&2
+echo "   BP_BUILD='$BP_BUILD'" >&2  
+echo "   BP_START='$BP_START'" >&2
+echo "   BP_NODE='$BP_NODE'" >&2
+
 # Validate required environment variables
 if [ -z "$BP_BUILD" ] || [ -z "$BP_START" ]; then
-  echo "ERROR: Missing required environment variables"
-  echo "Please set: heroku config:set BP_BUILD=@newsoftds/your-project BP_START='bun ./index.js'"
+  echo "ERROR: Missing required environment variables" >&2
+  echo "Please set: heroku config:set BP_BUILD=@newsoftds/your-project BP_START='bun ./index.js'" >&2
+  echo "Current values:" >&2
+  echo "   BP_BUILD='${BP_BUILD:-<not set>}'" >&2
+  echo "   BP_START='${BP_START:-<not set>}'" >&2
   exit 1
 fi
 
