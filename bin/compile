@@ -157,10 +157,32 @@ log_success "Dependencies installed"
 
 # 🔍 Validate project exists (after dependencies are installed)
 log_step "Validating Nx project: $BP_BUILD"
+
+# Debug Nx workspace detection
+log_info "Debugging Nx workspace..."
+log_info "nx.json exists: $([ -f nx.json ] && echo 'Yes' || echo 'No')"
+log_info "Nx version: $(bunx nx --version 2>/dev/null || echo 'Not found')"
+
+# Try to list all projects for debugging
+log_info "All projects in workspace:"
+bunx nx show projects 2>/dev/null | head -10 || log_info "Failed to list projects"
+
+log_info "Application projects only:"
+bunx nx show projects --type=application 2>/dev/null | head -10 || log_info "Failed to list application projects"
+
+# Check if the specific project exists
+log_info "Checking specific project: $BP_BUILD"
 if ! bunx nx show project $BP_BUILD >/dev/null 2>&1; then
     log_error "Project '$BP_BUILD' not found in Nx workspace!"
-    log_info "Available projects:"
-    bunx nx show projects --type=application 2>/dev/null | head -10 || log_info "Run 'bunx nx show projects' to see all available projects"
+    
+    log_info "Debugging - let's see what Nx sees:"
+    bunx nx show projects 2>&1 | head -15
+    
+    log_info "Project file exists: $([ -f "apis/servers/api-gateway-server/project.json" ] && echo 'Yes' || echo 'No')"
+    if [ -f "apis/servers/api-gateway-server/project.json" ]; then
+        log_info "Project name in file: $(cat apis/servers/api-gateway-server/project.json | bun -e 'const p=JSON.parse(await Bun.stdin.text()); console.log(p.name)' 2>/dev/null || echo 'Failed to parse')"
+    fi
+    
     exit 1
 fi
 
