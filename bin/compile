@@ -147,20 +147,21 @@ export BUN_DIR="$HOME/.heroku/cache"
 EOF
 fi
 
-# 🔍 Validate project exists
+# 📦 Install monorepo dependencies first (needed for nx commands)
+log_step "Installing monorepo dependencies"
+eval $BP_INSTALL
+log_success "Dependencies installed"
+
+# 🔍 Validate project exists (after dependencies are installed)
+log_step "Validating Nx project: $BP_BUILD"
 if ! bunx nx show project $BP_BUILD >/dev/null 2>&1; then
     log_error "Project '$BP_BUILD' not found in Nx workspace!"
     log_info "Available projects:"
-    bunx nx show projects --type=application | head -10
+    bunx nx show projects --type=application 2>/dev/null | head -10 || log_info "Run 'bunx nx show projects' to see all available projects"
     exit 1
 fi
 
 log_success "Found project: $BP_BUILD"
-
-# 📦 Install monorepo dependencies
-log_step "Installing monorepo dependencies"
-eval $BP_INSTALL
-log_success "Dependencies installed"
 
 # 🏗️ Build the specified project with Nx
 log_step "Building $BP_BUILD with Nx (generatePackageJson enabled)"

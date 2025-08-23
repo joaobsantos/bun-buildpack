@@ -172,12 +172,13 @@ heroku config:set BP_START="cd dist/apis/servers/api-gateway-server && NODE_ENV=
    
    📦 Installing Bun
    ℹ️  Using latest Bun version (no specific version specified)
-   ✅ Bun installed: 1.1.38
-   
-   ✅ Found project: @newsoftds/api-gateway-server
+   ✅ Bun installed: 1.2.20
    
    📦 Installing monorepo dependencies
    ✅ Dependencies installed
+   
+   📦 Validating Nx project: @newsoftds/api-gateway-server
+   ✅ Found project: @newsoftds/api-gateway-server
    
    📦 Building @newsoftds/api-gateway-server with Nx (generatePackageJson enabled)
    ✅ Build completed - output in: dist/apis/servers/api-gateway-server
@@ -222,6 +223,20 @@ heroku config:set BP_START="cd dist/apis/servers/api-gateway-server && NODE_ENV=
    ℹ️  Common examples: 'bun start', 'bun ./index.js', 'bunx serve -s . -l $PORT'
 ```
 **Solution**: Set both required environment variables in Heroku.
+
+### Nx resolution errors
+```
+❌ Project '@newsoftds/api-gateway-server' not found in Nx workspace!
+error: ENOENT while resolving package 'nx/bin/nx.js'
+```
+**Solution**: This usually happens when dependencies aren't installed yet. The buildpack now installs dependencies first, then validates the project. If you still see this, check:
+```bash
+# Make sure your project name is correct
+heroku config:get BP_BUILD
+
+# Check available projects locally
+bunx nx show projects --type=application
+```
 
 ### Project not found
 ```
