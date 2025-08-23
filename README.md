@@ -37,6 +37,26 @@ Perfect for deploying individual services from your Nx monorepo to Heroku with m
 - Docker containers that expect Node.js
 - Just set `BP_NODE=true` if needed
 
+## 📝 Bun Version Control
+
+The buildpack supports multiple ways to specify the Bun version (in priority order):
+
+1. **`runtime.bun.txt`** - Create this file in your repo root with version (e.g., `1.1.38`)
+2. **`runtime.txt`** - Alternative file with version (e.g., `1.1.38`) 
+3. **`BP_BUN_VERSION`** - Environment variable (e.g., `heroku config:set BP_BUN_VERSION=1.1.38`)
+4. **Default** - Uses latest Bun version if none specified
+
+```bash
+# Method 1: Create file in repo
+echo "1.1.38" > runtime.bun.txt
+
+# Method 2: Environment variable  
+heroku config:set BP_BUN_VERSION=1.1.38
+
+# Method 3: Use default (latest)
+# No action needed
+```
+
 ## 🔧 Environment Variables
 
 ### Required
@@ -52,7 +72,7 @@ Perfect for deploying individual services from your Nx monorepo to Heroku with m
 |----------|---------|-------------|
 | `BP_NODE` | `false` | Install Node.js alongside Bun (set to `true` if needed) |
 | `BP_NODE_VERSION` | `22.11.0` | Node.js version to install (must be specific version, not "latest") |
-| `BP_BUN_VERSION` | `latest` | Bun version to install |
+| `BP_BUN_VERSION` | `latest` | Bun version to install (or use `runtime.bun.txt`/`runtime.txt` files) |
 | `BP_INSTALL` | `bun install` | Command to install monorepo dependencies |
 | `BP_CLEAN` | `true` | Clean up source files after build |
 
@@ -150,7 +170,8 @@ heroku config:set BP_START="cd dist/apis/servers/api-gateway-server && NODE_ENV=
    📦 Skipping Node.js installation (BP_NODE=false)
    ℹ️  Using Bun only - set BP_NODE=true if you need Node.js
    
-   📦 Installing Bun latest
+   📦 Installing Bun
+   ℹ️  Using latest Bun version (no specific version specified)
    ✅ Bun installed: 1.1.38
    
    ✅ Found project: @newsoftds/api-gateway-server
@@ -214,6 +235,21 @@ heroku config:set BP_START="cd dist/apis/servers/api-gateway-server && NODE_ENV=
 ❌ Build output not found or missing package.json!
 ```
 **Solution**: Make sure your `project.json` has `"generatePackageJson": true` in the build target options.
+
+### Bun installation fails (404 error)
+```
+📦 Installing Bun latest
+curl: (22) The requested URL returned error: 404
+error: Failed to download bun from "https://github.com/oven-sh/bun/releases/download/bun-latest/bun-linux-x64.zip"
+```
+**Solution**: Use a specific Bun version or let it auto-detect latest:
+```bash
+# Option 1: Use specific version
+heroku config:set BP_BUN_VERSION=1.1.38
+
+# Option 2: Use default (auto-detects latest)
+heroku config:unset BP_BUN_VERSION
+```
 
 ### Node.js installation fails
 ```

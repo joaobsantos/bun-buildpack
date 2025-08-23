@@ -108,9 +108,26 @@ else
 fi
 
 # 🥯 Install Bun
-log_step "Installing Bun $BP_BUN_VERSION"
+log_step "Installing Bun"
+
+# Determine Bun version to install (like the old working buildpack)
+INSTALL_VERSION_OPTION=""
+if [ -f runtime.bun.txt ]; then
+  INSTALL_VERSION_OPTION="-s bun-$(cat runtime.bun.txt)"
+  log_info "Using Bun version from runtime.bun.txt: $(cat runtime.bun.txt)"
+elif [ -f runtime.txt ]; then
+  INSTALL_VERSION_OPTION="-s bun-$(cat runtime.txt)"
+  log_info "Using Bun version from runtime.txt: $(cat runtime.txt)"
+elif [ "$BP_BUN_VERSION" != "latest" ]; then
+  INSTALL_VERSION_OPTION="-s bun-$BP_BUN_VERSION"
+  log_info "Using Bun version from BP_BUN_VERSION: $BP_BUN_VERSION"
+else
+  log_info "Using latest Bun version (no specific version specified)"
+fi
+
 export BUN_INSTALL=$HEROKU_DIR
-curl -fsSL https://bun.sh/install | bash ${BP_BUN_VERSION:+-s bun-$BP_BUN_VERSION}
+export BUN_DIR=$HEROKU_DIR/cache
+curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION
 export PATH="$BUN_INSTALL/bin:$PATH"
 log_success "Bun installed: $(bun --version)"
 
