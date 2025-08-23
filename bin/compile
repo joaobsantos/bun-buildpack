@@ -33,10 +33,19 @@ export_env_dir() {
 export_env_dir $ENV_DIR
 
 # ⚙️ Configuration with defaults for optional variables
-BP_NODE_VERSION=${BP_NODE_VERSION:-"latest"}
+BP_NODE=${BP_NODE:-"false"}
+BP_NODE_VERSION=${BP_NODE_VERSION:-"22.11.0"}
 BP_BUN_VERSION=${BP_BUN_VERSION:-"latest"}
 BP_INSTALL=${BP_INSTALL:-"bun install"}
 BP_CLEAN=${BP_CLEAN:-"true"}
+
+# Helper function to check boolean values
+is_true() {
+  case "$1" in
+    true|TRUE|True|1|yes|YES|Yes|on|ON|On) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 # ❗ Validate required environment variables
 VALIDATION_FAILED=false
@@ -65,7 +74,11 @@ fi
 
 log_info "Project to build: $BP_BUILD"
 log_info "Start command: $BP_START"
-log_info "Node version: $BP_NODE_VERSION"
+if is_true "$BP_NODE"; then
+  log_info "Node.js: enabled (v$BP_NODE_VERSION)"
+else
+  log_info "Node.js: disabled (Bun only)"
+fi
 log_info "Bun version: $BP_BUN_VERSION"
 
 # 🏗️ Setup build environment
@@ -77,17 +90,22 @@ log_step "Setting up build environment"
 cp -rT $BUILD_DIR $HOME
 cd $HOME
 
-# 📦 Install Node.js
-log_step "Installing Node.js v$BP_NODE_VERSION"
+# 📦 Install Node.js (optional)
+if is_true "$BP_NODE"; then
+  log_step "Installing Node.js v$BP_NODE_VERSION"
   NODE_DISTRO="node-v$BP_NODE_VERSION-linux-x64"
-NODE_URL="https://nodejs.org/dist/v$BP_NODE_VERSION/$NODE_DISTRO.tar.xz"
+  NODE_URL="https://nodejs.org/dist/v$BP_NODE_VERSION/$NODE_DISTRO.tar.xz"
 
-curl -s $NODE_URL | tar -xJ
+  curl -s $NODE_URL | tar -xJ
   mkdir -p $HEROKU_DIR/node
   mv $NODE_DISTRO/* $HEROKU_DIR/node
-rm -rf $NODE_DISTRO
+  rm -rf $NODE_DISTRO
   export PATH="$HEROKU_DIR/node/bin:$PATH"
-log_success "Node.js installed: $(node --version)"
+  log_success "Node.js installed: $(node --version)"
+else
+  log_step "Skipping Node.js installation (BP_NODE=false)"
+  log_info "Using Bun only - set BP_NODE=true if you need Node.js"
+fi
 
 # 🥯 Install Bun
 log_step "Installing Bun $BP_BUN_VERSION"
@@ -99,11 +117,18 @@ log_success "Bun installed: $(bun --version)"
 # 📋 Setup runtime environment
 PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
 mkdir -p $(dirname $PROFILE_PATH)
-cat > $PROFILE_PATH << 'EOF'
+if is_true "$BP_NODE"; then
+  cat > $PROFILE_PATH << 'EOF'
 export PATH="$HOME/.heroku/node/bin:$PATH"
 export PATH="$HOME/.heroku/bin:$PATH"
 export BUN_DIR="$HOME/.heroku/cache"
 EOF
+else
+  cat > $PROFILE_PATH << 'EOF'
+export PATH="$HOME/.heroku/bin:$PATH"
+export BUN_DIR="$HOME/.heroku/cache"
+EOF
+fi
 
 # 🔍 Validate project exists
 if ! bunx nx show project $BP_BUILD >/dev/null 2>&1; then

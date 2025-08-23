@@ -1,122 +1,270 @@
-# bun-buildpack
+# 🚀 NewsoftDS Nx Monorepo Buildpack
 
-Custom Heroku buildpack for Bun monorepos (Nx-friendly).
+**Simple, clean Heroku buildpack for Nx monorepos with automatic dependency pruning.**
 
-It lets each Heroku app choose which workspace project to build and run via env vars, minimizes slug size by cleaning root `node_modules`, and preserves only the runtime dependencies required to boot your server or serve your app.
+Perfect for deploying individual services from your Nx monorepo to Heroku with minimal slug size and only the dependencies each service actually needs.
 
-## What it does
+## ✨ What it does
 
-- Detects a Bun/Node project by `package.json` or `bun.lock`
-- Optionally installs Node (for compatibility) and always installs Bun
-- Runs install and build inside your selected `APP_DIR`
-- Generates a minimal `package.json` inside your runtime output (`RUNTIME_DIR`) excluding `workspace:*` deps
-- Installs production-only dependencies inside the runtime output directory
-- Cleans root/app `node_modules` to shrink the slug, but keeps runtime deps
-- Defines the `web` process only in the Release phase (no auto-start in `.profile.d`)
+1. **🔍 Detects** your Nx workspace 
+2. **📦 Installs** Node.js and Bun
+3. **🏗️ Builds** your specified Nx project with `generatePackageJson: true`
+4. **🎯 Installs** only the production dependencies your app needs (resolves `workspace:*`)
+5. **🧹 Cleans** up unnecessary files to minimize slug size
+6. **✅ Ready** for deployment with clean logs throughout
 
-## Detection
+## 🎯 Key Features
 
-Project is detected if either `package.json` or `bun.lock` exists in the build dir.
+- ✅ **Two required environment variables**: `BP_BUILD` + `BP_START`
+- ✅ **Bun-first approach** - Node.js is optional and disabled by default
+- ✅ **Automatic dependency resolution** - `workspace:*` becomes real versions
+- ✅ **Minimal deployments** - only installs what your app actually uses
+- ✅ **Beautiful logs** - clear, colorful progress indicators
+- ✅ **Nx native** - leverages `generatePackageJson` feature
+- ✅ **Zero configuration** - works out of the box with sensible defaults
 
-## Compile (build) phase
+## 🚀 Why Bun-first?
 
-- Optional Node install if `NODE=true` (version via `NODE_VERSION`)
-- Bun is installed and exported to PATH via `.profile.d/bun.sh`
-- Execution directory resolution:
-  - If `APP_DIR` is provided and exists, use it; else use repo root
-- Installation and build run in the execution directory:
-  - Install via `INSTALL_COMMAND` (default: `bun install`)
-  - Build via `BUILD_COMMAND` (default: `bun run build`)
-- Runtime packaging (inside `RUNTIME_DIR`, default: `dist`):
-  - If `GENERATE_RUNTIME_PKG=true`, generates a minimal `package.json` with only non-`workspace:*` dependencies
-  - If `PROD_INSTALL=true`, runs `bun install --production` in the runtime directory
-- Cleanup if `CLEAN=true`:
-  - Removes root `node_modules` and `APP_DIR/node_modules`
-  - Preserves `RUNTIME_DIR/node_modules`
-  - Removes caches (`tmp`, `.cache`, internal install caches) to reduce slug size
-- No start command is executed or appended in this phase
+**Bun is faster and more efficient than Node.js for most use cases:**
+- ⚡ **3x faster** startup times
+- 🎯 **Built-in bundler** - no webpack needed
+- 📦 **Native TypeScript** support
+- 🔧 **Drop-in Node.js replacement** for most packages
 
-## Release phase
+**When you might need Node.js:**
+- Legacy dependencies that don't work with Bun yet
+- Specific Node.js native modules
+- Docker containers that expect Node.js
+- Just set `BP_NODE=true` if needed
 
-The web process is decided by env vars (priority order):
+## 🔧 Environment Variables
 
-1. `WEB_START_COMMAND`
-2. `WEB_start_COMMAND` (fallback)
-3. `START_COMMAND` (final fallback)
+### Required
 
-Working directory selection:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `BP_BUILD` | Nx project name to build | `@newsoftds/api-gateway-server` |
+| `BP_START` | Start command for your app | `bun ./index.js` |
 
-- If `START_IN_RUNTIME=true`, the release step will `cd` into `APP_DIR/RUNTIME_DIR` before executing the start command (if one is provided)
-- Otherwise, it will `cd` only into `APP_DIR` (if provided)
+### Optional
 
-No auto-run is emitted in `.profile.d`; only Release defines the `web` process.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BP_NODE` | `false` | Install Node.js alongside Bun (set to `true` if needed) |
+| `BP_NODE_VERSION` | `22.11.0` | Node.js version to install (must be specific version, not "latest") |
+| `BP_BUN_VERSION` | `latest` | Bun version to install |
+| `BP_INSTALL` | `bun install` | Command to install monorepo dependencies |
+| `BP_CLEAN` | `true` | Clean up source files after build |
 
-## Supported environment variables
+## 📋 Setup Guide
 
-- APP_DIR (compile, release)
-  - Path to the workspace app to build/run (e.g., `apis/servers/api-gateway-server`). If empty, repo root is used.
+### 1. Configure your Nx project
 
-- RUNTIME_DIR (compile, release) – default: `dist`
-  - Directory within `APP_DIR` containing the build output to run from (`dist`, `build`, or `.`).
+Make sure your `project.json` has `generatePackageJson: true`:
 
-- INSTALL_COMMAND (compile) – default: `bun install`
-  - Command used to install dependencies inside `APP_DIR`.
+```json
+{
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "generatePackageJson": true,
+        "outputPath": "dist/apis/servers/api-gateway-server"
+      }
+    }
+  }
+}
+```
 
-- BUILD_COMMAND (compile) – default: `bun run build`
-  - Build command executed in `APP_DIR`.
+### 2. Set Heroku environment variables
 
-- START_COMMAND (release)
-  - Fallback start command used if no `WEB_START_COMMAND` is provided (e.g., `bun ./index.js`).
+```bash
+# Required: Which project to build and how to start it
+heroku config:set BP_BUILD=@newsoftds/api-gateway-server
+heroku config:set BP_START="bun ./index.js"
 
-- WEB_START_COMMAND (release)
-  - Preferred explicit `web` process command.
+# Optional: Enable Node.js if your project needs it
+heroku config:set BP_NODE=true
+heroku config:set BP_NODE_VERSION=22.11.0
 
-- WEB_start_COMMAND (release)
-  - Case-variant fallback for legacy setups.
+# Optional: Customize Bun version
+heroku config:set BP_BUN_VERSION=latest
+```
 
-- START_IN_RUNTIME (release) – default: `false`
-  - If `true`, the release step will `cd` into `APP_DIR/RUNTIME_DIR` before executing the start command.
+### 3. Deploy (No Procfile needed!)
 
-- CLEAN (compile) – default: `true`
-  - If `true`, removes root and `APP_DIR` `node_modules` and caches after building. Runtime `node_modules` are preserved.
+```bash
+git push heroku main
+```
 
-- NODE (compile) – default: `true`
-  - If `true`, installs Node into `.heroku/node` for compatibility.
+## 🎯 Examples
 
-- NODE_VERSION (compile) – default: `20.9.0`
-  - Version of Node to install when `NODE=true`.
+### API Gateway Server
 
-- GENERATE_RUNTIME_PKG (compile) – default: `true`
-  - If `true`, generates `RUNTIME_DIR/package.json` by copying only non-`workspace:*` dependencies from the app’s `package.json`.
+```bash
+heroku config:set BP_BUILD=@newsoftds/api-gateway-server
+heroku config:set BP_START="bun ./index.js"
+```
 
-- PROD_INSTALL (compile) – default: `true`
-  - If `true`, runs `bun install --production` inside `RUNTIME_DIR` so runtime deps are present at boot.
+### University API
 
-- runtime.bun.txt / runtime.txt (compile)
-  - If present, pins the Bun version via `bun-<version>` during install.
+```bash
+heroku config:set BP_BUILD=@newsoftds/api-university-server
+heroku config:set BP_START="bun start"
+```
 
-## Examples
+### Web Application
 
-### GraphQL API (gateway)
+```bash
+heroku config:set BP_BUILD=@newsoftds/portal-paciente
+heroku config:set BP_START="bunx serve -s . -l $PORT"
+```
 
-- APP_DIR: `apis/servers/api-gateway-server`
-- BUILD_COMMAND: `bun run build:prod`
-- RUNTIME_DIR: `dist`
-- START_IN_RUNTIME: `true`
-- START_COMMAND: `bun ./index.js`
+### With Node.js (if your project needs it)
 
-### Another API (newsoftds)
+```bash
+# Some projects might need Node.js for specific dependencies
+heroku config:set BP_BUILD=@newsoftds/api-university-server
+heroku config:set BP_START="bun start"
+heroku config:set BP_NODE=true
+```
 
-- APP_DIR: `apis/servers/api-newsoftds-server`
-- BUILD_COMMAND: `bun run build`
-- RUNTIME_DIR: `build`
-- START_IN_RUNTIME: `true`
-- START_COMMAND: `bun ./index.js`
+### Custom Start Command with Full Path
 
-### React/Vite SPA (served by a static server)
+```bash
+# If you need full control, you can specify the complete command:
+heroku config:set BP_START="cd dist/apis/servers/api-gateway-server && NODE_ENV=production bun ./index.js"
+```
 
-- APP_DIR: `<web/app>`
-- BUILD_COMMAND: `bun run build`
-- RUNTIME_DIR: `dist`
-- START_IN_RUNTIME: `true`
-- START_COMMAND: `bunx serve -s . -l $PORT`
+## 📊 Build Output Example
+
+```
+🚀 NewsoftDS Nx Monorepo Buildpack v2.0
+
+   ℹ️  Project to build: @newsoftds/api-gateway-server
+   ℹ️  Start command: bun ./index.js
+   ℹ️  Node.js: disabled (Bun only)
+   ℹ️  Bun version: latest
+   
+   📦 Setting up build environment
+   📦 Skipping Node.js installation (BP_NODE=false)
+   ℹ️  Using Bun only - set BP_NODE=true if you need Node.js
+   
+   📦 Installing Bun latest
+   ✅ Bun installed: 1.1.38
+   
+   ✅ Found project: @newsoftds/api-gateway-server
+   
+   📦 Installing monorepo dependencies
+   ✅ Dependencies installed
+   
+   📦 Building @newsoftds/api-gateway-server with Nx (generatePackageJson enabled)
+   ✅ Build completed - output in: dist/apis/servers/api-gateway-server
+   ℹ️  Generated package.json found: 62 lines
+   
+   📦 Installing production dependencies in build output
+   ℹ️  Installing 12 production dependencies (workspace:* resolved to actual versions)
+   ✅ Production dependencies installed: 15M in node_modules
+   
+   📦 Cleaning up to reduce slug size
+   ℹ️  Removed root node_modules
+   ℹ️  Removed build caches  
+   ℹ️  Removed source directories
+   ✅ Cleanup complete - slug size: 45M
+
+🚀 Build Summary
+
+   ✅ Project: @newsoftds/api-gateway-server
+   ✅ Built to: dist/apis/servers/api-gateway-server
+   ✅ Dependencies: 12 packages installed
+   ✅ Runtime: Bun 1.1.38 (Node.js disabled)
+   
+   ℹ️  Your app will start with: bun ./index.js
+   ℹ️  To change start command: heroku config:set BP_START='bun ./index.js'
+   ℹ️  No Procfile needed - start command is configured via BP_START variable
+
+✅ Build Complete - Ready for deployment!
+```
+
+## 🔍 Troubleshooting
+
+### Missing required environment variables
+```
+❌ Build Failed - Missing Required Environment Variables
+
+   ❌ BP_BUILD environment variable is required!
+   ℹ️  Set it with: heroku config:set BP_BUILD=@newsoftds/your-project-name
+   ℹ️  Available projects: @newsoftds/api-gateway-server @newsoftds/api-clinic-server
+
+   ❌ BP_START environment variable is required!
+   ℹ️  Set it with: heroku config:set BP_START='bun ./index.js'
+   ℹ️  Common examples: 'bun start', 'bun ./index.js', 'bunx serve -s . -l $PORT'
+```
+**Solution**: Set both required environment variables in Heroku.
+
+### Project not found
+```
+❌ Project '@newsoftds/my-app' not found in Nx workspace!
+ℹ️  Available projects:
+```
+**Solution**: Check your `BP_BUILD` variable matches an actual Nx project name.
+
+### Missing package.json in build output
+```
+❌ Build output not found or missing package.json!
+```
+**Solution**: Make sure your `project.json` has `"generatePackageJson": true` in the build target options.
+
+### Node.js installation fails
+```
+📦 Installing Node.js vlatest
+xz: (stdin): File format not recognized  
+tar: Child returned status 1
+```
+**Solution**: Use a specific Node.js version number, not "latest":
+```bash
+heroku config:set BP_NODE_VERSION=22.11.0
+```
+
+### Build fails
+Check that your project builds locally first:
+```bash
+bunx nx build @newsoftds/your-project --configuration=production
+```
+
+## 🚀 Migration from old buildpack
+
+**Old way** (complex):
+- Multiple environment variables: `APP_DIR`, `RUNTIME_DIR`, `BUILD_COMMAND`, etc.
+- Custom package.json generation logic
+- Complex path resolution
+- Required Procfile management
+
+**New way** (simple):
+- Two variables: `BP_BUILD` + `BP_START`
+- Nx handles package.json generation
+- Smart auto-detection of build output
+- No Procfile needed
+
+Just update your Heroku config:
+```bash
+# Remove old variables
+heroku config:unset APP_DIR RUNTIME_DIR BUILD_COMMAND START_COMMAND WEB_START_COMMAND
+
+# Set new variables  
+heroku config:set BP_BUILD=@newsoftds/api-gateway-server
+heroku config:set BP_START="bun ./index.js"
+
+# Remove Procfile (no longer needed)
+rm Procfile
+```
+
+## 📝 Requirements
+
+- Nx workspace with projects configured for `generatePackageJson`
+- `package.json` and `bun.lock` in repository root
+- Heroku app with this buildpack configured
+
+---
+
+**Built for NewsoftDS monorepo** 🏗️ **Powered by Nx + Bun** ⚡

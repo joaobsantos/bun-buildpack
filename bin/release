@@ -55,7 +55,8 @@ else
 fi
 
 # Generate the release configuration
-cat << EOF
+if [ "$BP_NODE" = "true" ]; then
+  cat << EOF
 ---
 config_vars:
   BUN_DIR: /app/.heroku/cache
@@ -63,3 +64,13 @@ config_vars:
 default_process_types:
   web: $START_COMMAND
 EOF
+else
+  cat << EOF
+---
+config_vars:
+  BUN_DIR: /app/.heroku/cache
+  PATH: /app/.heroku/bin:\$PATH
+default_process_types:
+  web: $START_COMMAND
+EOF
+fi
