@@ -4,7 +4,7 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.2'
+echo 'BUN-BUILDPACK - v1.0.1'
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
@@ -12,20 +12,6 @@ ENV_DIR=${3:-}
 
 HEROKU_DIR=$BUILD_DIR/.heroku
 BIN_DIR=$HEROKU_DIR/bin
-
-# Define variables
-BP_CLEAN=${CLEAN:-true}
-BP_NODE=${NODE:-false}
-BP_NODE_VERSION=${NODE_VERSION:-22.15.0}
-
-# New variables for custom commands
-BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
-BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run build"}
-BP_START_COMMAND=${START_COMMAND:-"bun run start"}
-BP_APP_DIR=${APP_DIR:-}
-BP_RUNTIME_DIR=${RUNTIME_DIR:-dist}
-BP_GENERATE_RUNTIME_PKG=${GENERATE_RUNTIME_PKG:-true}
-BP_PROD_INSTALL=${PROD_INSTALL:-true}
 
 # Function to export env vars from ENV_DIR
 export_env_dir() {
@@ -43,6 +29,26 @@ export_env_dir() {
 # Export Heroku Config Vars
 export_env_dir $ENV_DIR
 
+# Resolve variables from env with defaults (after export)
+BP_CLEAN=${CLEAN:-true}
+BP_NODE=${NODE:-false}
+BP_NODE_VERSION=${NODE_VERSION:-22.15.0}
+BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
+BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run build"}
+BP_START_COMMAND=${START_COMMAND:-"bun run start"}
+BP_APP_DIR=${APP_DIR:-}
+BP_RUNTIME_DIR=${RUNTIME_DIR:-dist}
+BP_GENERATE_RUNTIME_PKG=${GENERATE_RUNTIME_PKG:-true}
+BP_PROD_INSTALL=${PROD_INSTALL:-true}
+
+# Boolean helper: treat true/1/yes/on (any case) as true
+is_true() {
+  case "$1" in
+    true|TRUE|True|1|yes|YES|Yes|on|ON|On) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # To enable the local source build cache path, copy the files and match the build path with the startup path.
 cp -rT $BUILD_DIR $HOME
 cd $HOME
@@ -57,7 +63,7 @@ fi
 echo $INSTALL_VERSION_OPTION
 
 # Install Node.js using prebuilt binaries if BP_NODE is true
-if $BP_NODE; then
+if is_true "$BP_NODE"; then
   echo "NODE config var is true, installing Node.js..."
   NODE_DISTRO="node-v$BP_NODE_VERSION-linux-x64"
   NODE_TAR="$NODE_DISTRO.tar.xz"
@@ -121,6 +127,19 @@ if [ -f "$EXEC_DIR/package.json" ]; then
 
   echo "Building App"
   eval $BP_BUILD_COMMAND
+
+  # Re-resolve runtime directory after build in case it was created by the build
+  if [ -d "$EXEC_DIR/$BP_RUNTIME_DIR" ]; then
+    RUNTIME_DIR_CANDIDATE="$BP_RUNTIME_DIR"
+  elif [ -d "$EXEC_DIR/dist" ]; then
+    RUNTIME_DIR_CANDIDATE="dist"
+  elif [ -d "$EXEC_DIR/build" ]; then
+    RUNTIME_DIR_CANDIDATE="build"
+  else
+    RUNTIME_DIR_CANDIDATE="."
+  fi
+  RUNTIME_PATH="$EXEC_DIR/$RUNTIME_DIR_CANDIDATE"
+  echo "Runtime directory resolved to: $RUNTIME_PATH"
 
   # Generate minimal package.json in runtime dir (excluding workspace:* deps) if requested and runtime dir is not root
   if is_true "$BP_GENERATE_RUNTIME_PKG" && [ "$RUNTIME_DIR_CANDIDATE" != "." ]; then
