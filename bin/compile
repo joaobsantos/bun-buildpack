@@ -4,7 +4,7 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.0'
+echo 'BUN-BUILDPACK - v1.0.1'
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
@@ -55,7 +55,9 @@ if [ -f package.json ]
 then
   echo "Installing dependencies..."
   cd $BUILD_DIR
-  bun install --production
+  # Avoid frozen lockfile failures on Heroku builds
+  export BUN_INSTALL_FROZEN_LOCKFILE=0
+  bun install --production --no-save
 
   echo "Building App"
   bun run -b build
@@ -71,7 +73,7 @@ then
     if [ -f "$BUILD_DIR/$DIST_DIR/package.json" ]; then
       echo "INSTALL_GATEWAY_DIST_DEPS enabled -> installing runtime deps in $DIST_DIR"
       cd "$BUILD_DIR/$DIST_DIR"
-      bun install --production
+      BUN_INSTALL_FROZEN_LOCKFILE=0 bun install --production --no-save
       cd "$BUILD_DIR"
     else
       echo "No package.json at $DIST_DIR, skipping runtime install"
