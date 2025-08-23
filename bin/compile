@@ -38,6 +38,16 @@ mkdir -p $(dirname $PROFILE_PATH)
 echo 'export PATH="$HOME/.heroku/bin:$PATH"' >> $PROFILE_PATH
 echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH
 
+# Helper to read env vars from either real env or $ENV_DIR files
+get_env_var() {
+  local var_name="$1"
+  if [ -n "${!var_name}" ]; then
+    echo "${!var_name}"
+  elif [ -n "$ENV_DIR" ] && [ -f "$ENV_DIR/$var_name" ]; then
+    cat "$ENV_DIR/$var_name"
+  fi
+}
+
 set +e
 
 # download dependencies
@@ -49,6 +59,24 @@ then
 
   echo "Building App"
   bun run -b build
+
+  # Optionally install runtime deps in a dist folder (gated by env var)
+  SHOULD_INSTALL=$(get_env_var INSTALL_GATEWAY_DIST_DEPS || true)
+  SHOULD_INSTALL=$(printf "%s" "$SHOULD_INSTALL" | tr '[:upper:]' '[:lower:]')
+  if [ "$SHOULD_INSTALL" = "true" ] || [ "$SHOULD_INSTALL" = "1" ]; then
+    DIST_DIR=$(get_env_var GATEWAY_DIST_DIR)
+    if [ -z "$DIST_DIR" ]; then
+      DIST_DIR="apis/servers/api-gateway-server/dist"
+    fi
+    if [ -f "$BUILD_DIR/$DIST_DIR/package.json" ]; then
+      echo "INSTALL_GATEWAY_DIST_DEPS enabled -> installing runtime deps in $DIST_DIR"
+      cd "$BUILD_DIR/$DIST_DIR"
+      bun install --production
+      cd "$BUILD_DIR"
+    else
+      echo "No package.json at $DIST_DIR, skipping runtime install"
+    fi
+  fi
 
   echo "Cleaning up unnecessary files..."
   # Add your cleanup steps here
@@ -78,3 +106,4 @@ then
 else
   echo "No .env file found, using default commands."
 fi
+
