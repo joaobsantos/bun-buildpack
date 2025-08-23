@@ -1,28 +1,14 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -e
 
-if [ -f /app/.env ]
-then
-  echo "Found .env file, customizing commands..."
-  # Load .env variables
-  export $(cat /app/.env | xargs)
-  # Use variables from .env to alter release commands if necessary
-  if [ -n "$START_COMMAND" ]; then
-    cat <<EOF
----
-default_process_types:
-  web: $START_COMMAND
-EOF
-  else
-    cat <<EOF
----
-default_process_types:
-  web: bun -b start
-EOF
-  fi
-else
-  cat <<EOF
----
-default_process_types:
-  web: bun -b start
-EOF
+# bin/detect <build-dir>
+BUILD_DIR=${1:-.}
+
+# Detect Bun projects by presence of package.json or bun.lock
+if [ -f "$BUILD_DIR/package.json" ] || [ -f "$BUILD_DIR/bun.lock" ]; then
+  echo "bun-custom"
+  exit 0
 fi
+
+exit 1
+
