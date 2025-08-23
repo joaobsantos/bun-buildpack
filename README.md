@@ -224,6 +224,25 @@ heroku config:set BP_START="cd dist/apis/servers/api-gateway-server && NODE_ENV=
 ```
 **Solution**: Set both required environment variables in Heroku.
 
+### Workspace dependency resolution errors
+```
+error: Workspace dependency "@types/jsonwebtoken" not found
+error: Workspace dependency "hono" not found
+error: @types/jsonwebtoken@workspace:* failed to resolve
+```
+**Solution**: This happens when external NPM packages are incorrectly marked as `workspace:*` dependencies. Only internal packages should use `workspace:*`. External packages should use actual version numbers:
+```json
+// ✅ Correct - internal packages use workspace:*
+"@newsoftds/graphql-core": "workspace:*",
+
+// ✅ Correct - external packages use versions  
+"@pothos/core": "^4.8.1",
+"hono": "^4.6.10"
+
+// ❌ Wrong - external package marked as workspace
+"hono": "workspace:*"
+```
+
 ### Nx resolution errors
 ```
 ❌ Project '@newsoftds/api-gateway-server' not found in Nx workspace!

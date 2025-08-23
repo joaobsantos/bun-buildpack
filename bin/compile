@@ -147,8 +147,11 @@ export BUN_DIR="$HOME/.heroku/cache"
 EOF
 fi
 
-# 📦 Install monorepo dependencies first (needed for nx commands)
+# 📦 Install monorepo dependencies (needed for nx commands)
 log_step "Installing monorepo dependencies"
+log_info "Working directory: $(pwd)"
+
+# Install workspace dependencies (now that workspace:* issues are fixed)
 eval $BP_INSTALL
 log_success "Dependencies installed"
 
