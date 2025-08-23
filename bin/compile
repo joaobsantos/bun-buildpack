@@ -4,7 +4,7 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.0'
+echo 'BUN-BUILDPACK - v1.0.2'
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
@@ -15,8 +15,8 @@ BIN_DIR=$HEROKU_DIR/bin
 
 # Define variables
 BP_CLEAN=${CLEAN:-true}
-BP_NODE=${NODE:-true}
-BP_NODE_VERSION=${NODE_VERSION:-20.9.0}
+BP_NODE=${NODE:-false}
+BP_NODE_VERSION=${NODE_VERSION:-22.15.0}
 
 # New variables for custom commands
 BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
@@ -122,8 +122,8 @@ if [ -f "$EXEC_DIR/package.json" ]; then
   echo "Building App"
   eval $BP_BUILD_COMMAND
 
-  # Generate minimal package.json in runtime dir (excluding workspace:* deps) if requested
-  if [ "$BP_GENERATE_RUNTIME_PKG" = true ]; then
+  # Generate minimal package.json in runtime dir (excluding workspace:* deps) if requested and runtime dir is not root
+  if is_true "$BP_GENERATE_RUNTIME_PKG" && [ "$RUNTIME_DIR_CANDIDATE" != "." ]; then
     if [ ! -f "$RUNTIME_PATH/package.json" ] && [ -f "$EXEC_DIR/package.json" ]; then
       echo "Generating runtime package.json at $RUNTIME_PATH"
       bun -e '
@@ -151,12 +151,13 @@ if [ -f "$EXEC_DIR/package.json" ]; then
     fi
   fi
 
-  # Install only production dependencies in the runtime directory
-  if [ "$BP_PROD_INSTALL" = true ]; then
+  # Install only production dependencies in the runtime directory (skip if runtime is repo root)
+  if is_true "$BP_PROD_INSTALL" && [ "$RUNTIME_DIR_CANDIDATE" != "." ]; then
     if [ -f "$RUNTIME_PATH/package.json" ]; then
       echo "Installing production dependencies in runtime dir: $RUNTIME_PATH"
       cd "$RUNTIME_PATH"
-      bun install --production
+      # Avoid CI frozen lockfile errors in ephemeral runtime dir; don't write lockfile
+      CI='' bun install --production --no-save
       cd "$EXEC_DIR"
     else
       echo "No runtime package.json found at $RUNTIME_PATH; skipping production install"
@@ -164,7 +165,7 @@ if [ -f "$EXEC_DIR/package.json" ]; then
   fi
 
   # Conditional cleanup
-  if $BP_CLEAN; then
+  if is_true "$BP_CLEAN"; then
     echo "CLEAN config var is true, cleaning up unnecessary files..."
     # Remove root node_modules only; keep runtime deps for app start
     rm -rf $BUILD_DIR/node_modules
