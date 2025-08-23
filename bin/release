@@ -1,74 +1,65 @@
 #!/usr/bin/env bash
-set -e
-
-# bin/release <build-dir> <cache-dir>
+# Release script for Nx Monorepo Buildpack
+# Defines the web process for Heroku
 
 BUILD_DIR=${1:-.}
-CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
 
-# Helper to read env vars from either real env or $ENV_DIR files
-get_env_var() {
-  local var_name="$1"
-  if [ -n "${!var_name}" ]; then
-    echo "${!var_name}"
-  elif [ -n "$ENV_DIR" ] && [ -f "$ENV_DIR/$var_name" ]; then
-    cat "$ENV_DIR/$var_name"
+# Export environment variables from Heroku
+export_env_dir() {
+  if [ -d "$1" ]; then
+    for e in $(ls $1); do
+      case $e in
+        PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH) ;;
+        *) export "$e=$(cat $1/$e)" ;;
+      esac
+    done
   fi
 }
 
-WEB_CMD=$(get_env_var WEB_START_COMMAND || true)
-WEB_CMD_FALLBACK=$(get_env_var WEB_start_COMMAND || true)
-START_CMD=$(get_env_var START_COMMAND || true)
-APP_DIR=$(get_env_var APP_DIR || true)
-RUNTIME_DIR=$(get_env_var RUNTIME_DIR || true)
-START_IN_RUNTIME=$(get_env_var START_IN_RUNTIME || true)
+export_env_dir $ENV_DIR
 
-# WEB_START_COMMAND is required to define the web process. If absent, we emit an empty map.
-if [ -n "$WEB_CMD" ]; then
-  cat <<EOF
----
-default_process_types:
-  web: $WEB_CMD
-EOF
-elif [ -n "$WEB_CMD_FALLBACK" ]; then
-  cat <<EOF
----
-default_process_types:
-  web: $WEB_CMD_FALLBACK
-EOF
-elif [ -n "$START_CMD" ]; then
-  # Compose a cwd change based on APP_DIR and RUNTIME_DIR if provided
-  CWD=""
-  if [ -n "$APP_DIR" ]; then
-    CWD="$APP_DIR"
-  fi
-  if [ "$START_IN_RUNTIME" = "true" ]; then
-    if [ -n "$RUNTIME_DIR" ] && [ "$RUNTIME_DIR" != "." ]; then
-      if [ -n "$CWD" ]; then
-        CWD="$CWD/$RUNTIME_DIR"
-      else
-        CWD="$RUNTIME_DIR"
-      fi
-    fi
-  fi
-  if [ -n "$CWD" ]; then
-    CMD="cd $CWD && $START_CMD"
-  else
-    CMD="$START_CMD"
-  fi
-  cat <<EOF
----
-default_process_types:
-  web: $CMD
-EOF
-else
-  # No Procfile and no WEB_START_COMMAND provided: do not define any default processes
-  cat <<EOF
----
-default_process_types: {}
-EOF
+# Configuration - no defaults, require explicit values
+BP_BUILD=${BP_BUILD}
+BP_START=${BP_START}
+
+# Validate required environment variables
+if [ -z "$BP_BUILD" ] || [ -z "$BP_START" ]; then
+  echo "ERROR: Missing required environment variables"
+  echo "Please set: heroku config:set BP_BUILD=@newsoftds/your-project BP_START='bun ./index.js'"
+  exit 1
 fi
 
-exit 0
+# Try to find the built project directory
+DIST_PATH=""
+for possible_path in \
+  "dist/apis/servers/${BP_BUILD#@newsoftds/}" \
+  "dist/${BP_BUILD#@newsoftds/}" \
+  "dist/$(echo $BP_BUILD | sed 's/@[^/]*\///')" \
+  "apps/${BP_BUILD#@newsoftds/}/dist" \
+  "web/packages/${BP_BUILD#@newsoftds/}/dist"
+do
+  if [ -d "$possible_path" ] && [ -f "$possible_path/package.json" ]; then
+    DIST_PATH="$possible_path"
+    break
+  fi
+done
 
+# Smart start command handling
+if [[ "$BP_START" == *"cd "* ]]; then
+  # User provided full command with cd, use as-is
+  START_COMMAND="$BP_START"
+else
+  # User provided just the command, prepend cd to dist path
+  START_COMMAND="cd $DIST_PATH && $BP_START"
+fi
+
+# Generate the release configuration
+cat << EOF
+---
+config_vars:
+  BUN_DIR: /app/.heroku/cache
+  PATH: /app/.heroku/node/bin:/app/.heroku/bin:\$PATH
+default_process_types:
+  web: $START_COMMAND
+EOF
