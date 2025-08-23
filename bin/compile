@@ -187,22 +187,31 @@ fi
 
 # Install with explicit workspace support and better error handling
 set +e
-log_info "Running: $BP_INSTALL"
-eval $BP_INSTALL
+log_info "Running: $BP_INSTALL --ignore-scripts"
+log_info "Skipping postinstall scripts to avoid database connection issues during build"
+
+# Add --ignore-scripts to skip postinstall that tries to connect to database
+if [[ "$BP_INSTALL" == *"--ignore-scripts"* ]]; then
+  # User already specified --ignore-scripts
+  eval $BP_INSTALL
+else
+  # Add --ignore-scripts to prevent postinstall database connections
+  eval "$BP_INSTALL --ignore-scripts"
+fi
 
 # Check install result
 if [ $? -eq 0 ]; then
-  log_success "Dependencies installed"
+  log_success "Dependencies installed (postinstall scripts skipped)"
 else
   log_error "Dependency installation failed"
   log_info "This might be due to workspace dependency resolution issues"
-  log_info "Trying to run bun install again to regenerate lockfile..."
-  bun install --verbose
+  log_info "Trying to run bun install again with --ignore-scripts..."
+  bun install --ignore-scripts --verbose
   if [ $? -ne 0 ]; then
     log_error "Failed to install dependencies. Check workspace configuration."
     exit 1
   fi
-  log_success "Dependencies installed on retry"
+  log_success "Dependencies installed on retry (postinstall scripts skipped)"
 fi
 
 # 🔍 Check workspace packages exist for debugging
