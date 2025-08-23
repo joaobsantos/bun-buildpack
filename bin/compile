@@ -155,17 +155,69 @@ export BUN_DIR="$HOME/.heroku/cache"
 EOF
 fi
 
-# 📦 Install monorepo dependencies (needed for nx commands)  
+# 📦 Install monorepo dependencies (needed for nx commands)
 log_step "Installing monorepo dependencies"
 log_info "Working directory: $(pwd)"
 
-# Use the same approach as old buildpack - change to BUILD_DIR and disable strict error checking
+# Ensure we're in the root directory where package.json and workspaces are defined
 cd $BUILD_DIR
-set +e
 
-# Install workspace dependencies (now that workspace:* issues are fixed)
+# Show workspace info for debugging
+if [ -f package.json ]; then
+  log_info "Found package.json, checking workspace configuration..."
+  if grep -q "workspaces" package.json; then
+    log_info "Workspaces configured in package.json ✅"
+  else
+    log_error "No workspaces found in package.json!"
+  fi
+else
+  log_error "No package.json found in build directory!"
+fi
+
+# Check if bun.lock exists for workspace resolution  
+if [ -f bun.lock ]; then
+  log_info "Bun lockfile (text format) found ✅"
+  log_info "Lockfile size: $(wc -l < bun.lock) lines"
+elif [ -f bun.lockb ]; then
+  log_info "Bun lockfile (binary format) found ✅"
+else
+  log_info "No bun lockfile found - will generate during install"
+  log_info "This is normal for first-time workspace setup"
+fi
+
+# Install with explicit workspace support and better error handling
+set +e
+log_info "Running: $BP_INSTALL"
 eval $BP_INSTALL
-log_success "Dependencies installed"
+
+# Check install result
+if [ $? -eq 0 ]; then
+  log_success "Dependencies installed"
+else
+  log_error "Dependency installation failed"
+  log_info "This might be due to workspace dependency resolution issues"
+  log_info "Trying to run bun install again to regenerate lockfile..."
+  bun install --verbose
+  if [ $? -ne 0 ]; then
+    log_error "Failed to install dependencies. Check workspace configuration."
+    exit 1
+  fi
+  log_success "Dependencies installed on retry"
+fi
+
+# 🔍 Check workspace packages exist for debugging
+log_info "Checking workspace packages..."
+if [ -d "apis/packages/graphql-newsoftds-core" ]; then
+  log_info "@newsoftds/graphql-core package found ✅"
+else
+  log_error "@newsoftds/graphql-core package NOT found ❌"
+fi
+
+if [ -d "apis/packages/graphql-server" ]; then
+  log_info "@newsoftds/graphql-server package found ✅"
+else
+  log_error "@newsoftds/graphql-server package NOT found ❌"
+fi
 
 # 🔍 Validate project exists (bypass Nx plugin issues)
 log_step "Validating Nx project: $BP_BUILD"

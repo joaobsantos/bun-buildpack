@@ -270,6 +270,34 @@ bunx nx show projects --type=application
 ```
 **Solution**: Make sure your `project.json` has `"generatePackageJson": true` in the build target options.
 
+### Missing environment variables in release
+```
+ERROR: Missing required environment variables
+Please set: heroku config:set BP_BUILD=@newsoftds/api-gateway-server BP_START='bun ./index.js'
+```
+**Solution**: Ensure both required environment variables are set:
+```bash
+heroku config:set BP_BUILD=@newsoftds/api-gateway-server
+heroku config:set BP_START='bun ./index.js'
+```
+
+### Workspace dependencies not found
+```
+error: Workspace dependency "@newsoftds/graphql-core" not found
+Searched in "./*"
+Workspace documentation: https://bun.com/docs/install/workspaces
+```
+**Solution**: This indicates workspace resolution issues. The buildpack now includes comprehensive debugging:
+- ✅ Checks for workspace packages in correct directories  
+- ✅ Validates `package.json` workspace configuration
+- ✅ Retries installation with verbose logging if first attempt fails
+- ✅ Regenerates lockfile if needed
+
+Common causes:
+1. **Missing workspace packages**: Ensure all referenced packages exist in the monorepo
+2. **Incorrect `workspace:*` usage**: Use `workspace:*` only for internal monorepo packages, not external NPM dependencies
+3. **Lockfile issues**: The buildpack will regenerate the lockfile automatically if needed
+
 ### Bun installation fails (404 error)
 ```
 📦 Installing Bun latest
@@ -283,6 +311,20 @@ heroku config:set BP_BUN_VERSION=1.1.38
 
 # Option 2: Use default (auto-detects latest)
 heroku config:unset BP_BUN_VERSION
+```
+
+### Node.js installation hangs or times out
+```
+📦 Installing Node.js v22.11.0
+(stuck for several minutes)
+```
+**Solution**: The Node.js download might be slow or timing out. Since Bun/Nx compatibility issues are fixed, you likely don't need Node.js:
+```bash
+# Disable Node.js for faster builds (recommended)
+heroku config:unset BP_NODE
+
+# OR if you really need Node.js, try a different version
+heroku config:set BP_NODE_VERSION=20.18.0
 ```
 
 ### Node.js installation fails

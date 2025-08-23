@@ -22,6 +22,7 @@ export_env_dir $ENV_DIR
 # Configuration - no defaults, require explicit values
 BP_BUILD=${BP_BUILD}
 BP_START=${BP_START}
+BP_NODE=${BP_NODE:-"false"}
 
 # Validate required environment variables
 if [ -z "$BP_BUILD" ] || [ -z "$BP_START" ]; then
