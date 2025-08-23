@@ -22,6 +22,10 @@ BP_NODE_VERSION=${NODE_VERSION:-20.9.0}
 BP_INSTALL_COMMAND=${INSTALL_COMMAND:-"bun install"}
 BP_BUILD_COMMAND=${BUILD_COMMAND:-"bun run build"}
 BP_START_COMMAND=${START_COMMAND:-"bun run start"}
+BP_APP_DIR=${APP_DIR:-}
+BP_RUNTIME_DIR=${RUNTIME_DIR:-dist}
+BP_GENERATE_RUNTIME_PKG=${GENERATE_RUNTIME_PKG:-true}
+BP_PROD_INSTALL=${PROD_INSTALL:-true}
 
 # Function to export env vars from ENV_DIR
 export_env_dir() {
@@ -86,19 +90,87 @@ echo 'export BUN_DIR="$HOME/.heroku/cache"' >> $PROFILE_PATH
 
 set +e
 
+# Resolve execution directory (monorepo app dir if provided)
+if [ -n "$BP_APP_DIR" ] && [ -d "$BUILD_DIR/$BP_APP_DIR" ]; then
+  EXEC_DIR="$BUILD_DIR/$BP_APP_DIR"
+  echo "Using APP_DIR: $BP_APP_DIR"
+else
+  EXEC_DIR="$BUILD_DIR"
+fi
+
+# Determine runtime directory inside the app
+if [ -d "$EXEC_DIR/$BP_RUNTIME_DIR" ]; then
+  RUNTIME_DIR_CANDIDATE="$BP_RUNTIME_DIR"
+elif [ -d "$EXEC_DIR/dist" ]; then
+  RUNTIME_DIR_CANDIDATE="dist"
+elif [ -d "$EXEC_DIR/build" ]; then
+  RUNTIME_DIR_CANDIDATE="build"
+else
+  RUNTIME_DIR_CANDIDATE="."
+fi
+RUNTIME_PATH="$EXEC_DIR/$RUNTIME_DIR_CANDIDATE"
+echo "Runtime directory resolved to: $RUNTIME_PATH"
+export EXEC_DIR
+export RUNTIME_PATH
+
 # Download dependencies
-if [ -f package.json ]; then
+if [ -f "$EXEC_DIR/package.json" ]; then
   echo "Installing dependencies..."
-  cd $BUILD_DIR
+  cd $EXEC_DIR
   eval $BP_INSTALL_COMMAND
 
   echo "Building App"
   eval $BP_BUILD_COMMAND
 
+  # Generate minimal package.json in runtime dir (excluding workspace:* deps) if requested
+  if [ "$BP_GENERATE_RUNTIME_PKG" = true ]; then
+    if [ ! -f "$RUNTIME_PATH/package.json" ] && [ -f "$EXEC_DIR/package.json" ]; then
+      echo "Generating runtime package.json at $RUNTIME_PATH"
+      bun -e '
+        import { readFileSync, writeFileSync } from "node:fs"
+        const execDir = process.env.EXEC_DIR
+        const runtimePath = process.env.RUNTIME_PATH
+        const appPkg = JSON.parse(readFileSync(execDir + "/package.json", "utf8"))
+        const filterDeps = (deps = {}) => Object.fromEntries(
+          Object.entries(deps).filter(([_, v]) => typeof v === "string" && !v.startsWith("workspace:"))
+        )
+        const runtimePkg = {
+          name: (appPkg.name || "app") + "-runtime",
+          private: true,
+          type: appPkg.type,
+          dependencies: filterDeps(appPkg.dependencies || {})
+        }
+        if (Object.keys(runtimePkg.dependencies).length === 0) {
+          // Ensure object exists for bun install
+          runtimePkg.dependencies = {}
+        }
+        writeFileSync(runtimePath + "/package.json", JSON.stringify(runtimePkg, null, 2))
+      '
+    else
+      echo "Runtime package.json already exists or missing app package.json; skipping generation"
+    fi
+  fi
+
+  # Install only production dependencies in the runtime directory
+  if [ "$BP_PROD_INSTALL" = true ]; then
+    if [ -f "$RUNTIME_PATH/package.json" ]; then
+      echo "Installing production dependencies in runtime dir: $RUNTIME_PATH"
+      cd "$RUNTIME_PATH"
+      bun install --production
+      cd "$EXEC_DIR"
+    else
+      echo "No runtime package.json found at $RUNTIME_PATH; skipping production install"
+    fi
+  fi
+
   # Conditional cleanup
   if $BP_CLEAN; then
     echo "CLEAN config var is true, cleaning up unnecessary files..."
-    rm -rf $BUILD_DIR/node_modules # If using a custom node_modules cache, make sure to restore it in the next deploy
+    # Remove root node_modules only; keep runtime deps for app start
+    rm -rf $BUILD_DIR/node_modules
+    if [ -n "$BP_APP_DIR" ]; then
+      rm -rf $EXEC_DIR/node_modules
+    fi
     rm -rf $BUILD_DIR/tmp
     rm -rf $BUILD_DIR/.cache
     rm -rf $HEROKU_DIR/install/cache
@@ -110,5 +182,4 @@ if [ -f package.json ]; then
 fi
 
 # Add start command to .profile.d
-echo "Adding start command to .profile.d"
-echo "eval $BP_START_COMMAND" >> $PROFILE_PATH
+echo "Added bun environment to .profile.d"
