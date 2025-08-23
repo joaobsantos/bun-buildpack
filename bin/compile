@@ -4,7 +4,7 @@
 
 set -e
 
-echo 'BUN-BUILDPACK - v1.0.1'
+echo 'BUN-BUILDPACK - v1.0.2'
 
 BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
@@ -126,7 +126,21 @@ if [ -f "$EXEC_DIR/package.json" ]; then
   eval $BP_INSTALL_COMMAND
 
   echo "Building App"
-  eval $BP_BUILD_COMMAND
+  # Determine build command: prefer explicit build, else build:prod, else known script path, else skip
+  DETECTED_BUILD_CMD=""
+  if bun -e 'import { readFileSync } from "node:fs"; const p=JSON.parse(readFileSync("package.json","utf8")); process.exit(p?.scripts?.build?0:1)'; then
+    DETECTED_BUILD_CMD="$BP_BUILD_COMMAND"
+  elif bun -e 'import { readFileSync } from "node:fs"; const p=JSON.parse(readFileSync("package.json","utf8")); process.exit(p?.scripts?.["build:prod"]?0:1)'; then
+    DETECTED_BUILD_CMD="bun run build:prod"
+  elif [ -f "$EXEC_DIR/src/scripts/build.ts" ]; then
+    DETECTED_BUILD_CMD="bun run src/scripts/build.ts --production"
+  fi
+  if [ -n "$DETECTED_BUILD_CMD" ]; then
+    echo "Running: $DETECTED_BUILD_CMD"
+    eval "$DETECTED_BUILD_CMD"
+  else
+    echo "No build script found; skipping build step"
+  fi
 
   # Re-resolve runtime directory after build in case it was created by the build
   if [ -d "$EXEC_DIR/$BP_RUNTIME_DIR" ]; then
