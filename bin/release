@@ -29,8 +29,8 @@ fi
 cat << EOF
 ---
 config_vars:
-  BUN_DIR: /app/.heroku/cache
-  PATH: /app/.heroku/bin:\$PATH
+  BUN_DIR: "/app/.heroku/cache"
+  PATH: "/app/.heroku/bin:\$PATH"
 default_process_types:
-  web: $WEB_COMMAND
+  web: "$WEB_COMMAND"
 EOF

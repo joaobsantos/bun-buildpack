@@ -303,12 +303,38 @@ if is_true "$BP_CLEAN"; then
   
   # Remove caches and build artifacts
   rm -rf .nx .cache tmp .heroku/cache
-  rm -rf *.md *.lock *.lockb tsconfig*.json nx.json .git* biome.json
+  rm -rf *.md *.lock *.lockb tsconfig*.json nx.json biome.json
   log_info "Removed build artifacts and caches"
+  
+  # Remove git directory (can be HUGE)
+  if [ -d ".git" ]; then
+    GIT_SIZE=$(du -sh .git | cut -f1)
+    log_info "Removing .git directory (size: $GIT_SIZE)"
+    rm -rf .git
+  fi
+  
+  # If BP_NODE is false, remove Node.js to save space
+  if ! is_true "$BP_NODE"; then
+    if [ -d ".heroku/node" ]; then
+      NODE_SIZE=$(du -sh .heroku/node | cut -f1)
+      log_info "Removing Node.js installation (size: $NODE_SIZE) - BP_NODE=false"
+      rm -rf .heroku/node
+    fi
+  fi
   
   # Show what's left
   log_info "Remaining files after cleanup:"
   du -sh * 2>/dev/null | sort -rh | head -10 || true
+  
+  # Check hidden directories too
+  log_info "Hidden directories:"
+  du -sh .* 2>/dev/null | grep -v "^\.$" | sort -rh | head -10 || true
+  
+  # The issue might be .heroku directory with Node.js
+  if [ -d ".heroku/node" ]; then
+    NODE_SIZE=$(du -sh .heroku/node | cut -f1)
+    log_info ".heroku/node size: $NODE_SIZE"
+  fi
   
   SLUG_SIZE=$(du -sh . | cut -f1)
   log_success "Cleanup complete - final slug size: $SLUG_SIZE"
