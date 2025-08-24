@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Nx Monorepo Buildpack for Heroku
-# Simple, clean, and focused on Nx projects with generatePackageJson
-
+# NewsoftDS Monorepo Buildpack for Heroku
+# Ultra-simple but with full functionality
+#
 set -e
 
 # 🎨 Pretty logging functions
@@ -16,7 +16,7 @@ BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
 
-log_header "NewsoftDS Nx Monorepo Buildpack v2.0"
+log_header "NewsoftDS Monorepo Buildpack v3.0 (Simple + Complete)"
 
 # 🔧 Export environment variables from Heroku
 export_env_dir() {
@@ -32,7 +32,7 @@ export_env_dir() {
 
 export_env_dir $ENV_DIR
 
-# ⚙️ Configuration with defaults for optional variables
+# ⚙️ Configuration with defaults
 BP_NODE=${BP_NODE:-"false"}
 BP_NODE_VERSION=${BP_NODE_VERSION:-"22.11.0"}
 BP_BUN_VERSION=${BP_BUN_VERSION:-"latest"}
@@ -52,23 +52,25 @@ VALIDATION_FAILED=false
 
 if [ -z "$BP_BUILD" ]; then
   log_error "BP_BUILD environment variable is required!"
-  log_info "Set it with: heroku config:set BP_BUILD=@newsoftds/your-project-name"
-  log_info "Available projects: $(bunx nx show projects --type=application 2>/dev/null | head -5 | tr '\n' ' ' || echo 'Run bunx nx show projects to see all')"
+  log_info "Set it with: heroku config:set BP_BUILD=@newsoftds/api-gateway-server"
+  log_info "Or: heroku config:set BP_BUILD=apis/servers/api-gateway-server"
+  log_info "Available projects:"
+  find . -name "package.json" -path "*/servers/*" -o -path "*/packages/*" 2>/dev/null | head -5 || true
   VALIDATION_FAILED=true
 fi
 
 if [ -z "$BP_START" ]; then
   log_error "BP_START environment variable is required!"
-  log_info "Set it with: heroku config:set BP_START='bun ./index.js'"
-  log_info "Common examples: 'bun start', 'bun ./index.js', 'bunx serve -s . -l \$PORT'"
+  log_info "Set it with: heroku config:set BP_START='bun index.js'"
+  log_info "Common examples: 'bun start', 'bun index.js', 'node dist/server.js'"
   VALIDATION_FAILED=true
 fi
 
 if [ "$VALIDATION_FAILED" = true ]; then
   log_header "❌ Build Failed - Missing Required Environment Variables"
   log_info "Please set the required variables and redeploy:"
-  log_info "heroku config:set BP_BUILD=@newsoftds/your-project"
-  log_info "heroku config:set BP_START='bun ./index.js'"
+  log_info "heroku config:set BP_BUILD=your-project-or-path"
+  log_info "heroku config:set BP_START='bun index.js'"
   exit 1
 fi
 
@@ -85,19 +87,16 @@ log_info "Bun version: $BP_BUN_VERSION"
 HEROKU_DIR=$BUILD_DIR/.heroku
 mkdir -p $HEROKU_DIR/bin
 
-# Copy source to build location
-log_step "Setting up build environment"
-cp -rT $BUILD_DIR $HOME
-cd $HOME
+# Move to build directory
+cd $BUILD_DIR
 
-# 📦 Install Node.js (optional) - using the working approach from old buildpack  
+# 📦 Install Node.js (optional)
 if is_true "$BP_NODE"; then
   log_step "Installing Node.js v$BP_NODE_VERSION"
   NODE_DISTRO="node-v$BP_NODE_VERSION-linux-x64"
   NODE_TAR="$NODE_DISTRO.tar.xz"
   NODE_URL="https://nodejs.org/dist/v$BP_NODE_VERSION/$NODE_TAR"
-
-  # Use the simple approach that worked in the old buildpack
+  
   curl -O $NODE_URL
   tar -xf $NODE_TAR || { 
     log_error "Error extracting Node.js tarball"
@@ -106,19 +105,17 @@ if is_true "$BP_NODE"; then
   mkdir -p $HEROKU_DIR/node
   mv $NODE_DISTRO/* $HEROKU_DIR/node
   rm -rf $NODE_TAR $NODE_DISTRO
-
-  # Add Node.js to PATH
+  
   export PATH="$HEROKU_DIR/node/bin:$PATH"
   log_success "Node.js installed: $(node --version)"
 else
   log_step "Skipping Node.js installation (BP_NODE=false)"
-  log_info "Using Bun only - set BP_NODE=true if you need Node.js"
 fi
 
 # 🥯 Install Bun
 log_step "Installing Bun"
 
-# Determine Bun version to install (like the old working buildpack)
+# Determine Bun version
 INSTALL_VERSION_OPTION=""
 if [ -f runtime.bun.txt ]; then
   INSTALL_VERSION_OPTION="-s bun-$(cat runtime.bun.txt)"
@@ -129,8 +126,6 @@ elif [ -f runtime.txt ]; then
 elif [ "$BP_BUN_VERSION" != "latest" ]; then
   INSTALL_VERSION_OPTION="-s bun-$BP_BUN_VERSION"
   log_info "Using Bun version from BP_BUN_VERSION: $BP_BUN_VERSION"
-else
-  log_info "Using latest Bun version (no specific version specified)"
 fi
 
 export BUN_INSTALL=$BUILD_DIR/.heroku
@@ -155,237 +150,143 @@ export BUN_DIR="$HOME/.heroku/cache"
 EOF
 fi
 
-# 📦 Install monorepo dependencies (needed for nx commands)
+# 📦 Install monorepo dependencies
 log_step "Installing monorepo dependencies"
-log_info "Working directory: $(pwd)"
-
-# Ensure we're in the root directory where package.json and workspaces are defined
-cd $BUILD_DIR
-
-# Show workspace info for debugging
-if [ -f package.json ]; then
-  log_info "Found package.json, checking workspace configuration..."
-  if grep -q "workspaces" package.json; then
-    log_info "Workspaces configured in package.json ✅"
-  else
-    log_error "No workspaces found in package.json!"
-  fi
-else
-  log_error "No package.json found in build directory!"
-fi
-
-# Check if bun.lock exists for workspace resolution  
-if [ -f bun.lock ]; then
-  log_info "Bun lockfile (text format) found ✅"
-  log_info "Lockfile size: $(wc -l < bun.lock) lines"
-elif [ -f bun.lockb ]; then
-  log_info "Bun lockfile (binary format) found ✅"
-else
-  log_info "No bun lockfile found - will generate during install"
-  log_info "This is normal for first-time workspace setup"
-fi
-
-# Install with explicit workspace support and better error handling
-set +e
 log_info "Running: $BP_INSTALL --ignore-scripts"
-log_info "Skipping postinstall scripts to avoid database connection issues during build"
 
-# Add --ignore-scripts to skip postinstall that tries to connect to database
+# Add --ignore-scripts to prevent postinstall database connections
 if [[ "$BP_INSTALL" == *"--ignore-scripts"* ]]; then
-  # User already specified --ignore-scripts
   eval $BP_INSTALL
 else
-  # Add --ignore-scripts to prevent postinstall database connections
   eval "$BP_INSTALL --ignore-scripts"
 fi
 
-# Check install result
 if [ $? -eq 0 ]; then
-  log_success "Dependencies installed (postinstall scripts skipped)"
+  log_success "Dependencies installed"
 else
   log_error "Dependency installation failed"
-  log_info "This might be due to workspace dependency resolution issues"
-  log_info "Trying to run bun install again with --ignore-scripts..."
-  bun install --ignore-scripts --verbose
-  if [ $? -ne 0 ]; then
-    log_error "Failed to install dependencies. Check workspace configuration."
-    exit 1
-  fi
-  log_success "Dependencies installed on retry (postinstall scripts skipped)"
-fi
-
-# 🔍 Check workspace packages exist for debugging
-log_info "Checking workspace packages..."
-if [ -d "apis/packages/graphql-newsoftds-core" ]; then
-  log_info "@newsoftds/graphql-core package found ✅"
-else
-  log_error "@newsoftds/graphql-core package NOT found ❌"
-fi
-
-if [ -d "apis/packages/graphql-server" ]; then
-  log_info "@newsoftds/graphql-server package found ✅"
-else
-  log_error "@newsoftds/graphql-server package NOT found ❌"
-fi
-
-# 🔍 Validate project exists (bypass Nx plugin issues)
-log_step "Validating Nx project: $BP_BUILD"
-
-# The Nx JS plugin has issues with Bun, so let's validate the project directly
-log_info "Checking project file system structure..."
-
-# Determine project path from project name
-PROJECT_PATH=""
-case $BP_BUILD in
-  "@newsoftds/api-gateway-server")
-    PROJECT_PATH="apis/servers/api-gateway-server"
-    ;;
-  "@newsoftds/api-clinic-server")
-    PROJECT_PATH="apis/servers/api-clinic-server"
-    ;;
-  "@newsoftds/api-university-server")
-    PROJECT_PATH="apis/servers/api-university-server"
-    ;;
-  "@newsoftds/api-newsoftds-server")
-    PROJECT_PATH="apis/servers/api-newsoftds-server"
-    ;;
-  *)
-    log_info "Unknown project pattern, trying to auto-detect..."
-    # Try to find project.json files and match by name
-    for project_file in $(find . -name "project.json" -not -path "./node_modules/*" 2>/dev/null); do
-      project_name=$(cat "$project_file" | bun -e 'const p=JSON.parse(await Bun.stdin.text()); console.log(p.name || "")' 2>/dev/null)
-      if [ "$project_name" = "$BP_BUILD" ]; then
-        PROJECT_PATH=$(dirname "$project_file")
-        break
-      fi
-    done
-    ;;
-esac
-
-if [ -n "$PROJECT_PATH" ] && [ -f "$PROJECT_PATH/project.json" ]; then
-  PROJECT_NAME=$(cat "$PROJECT_PATH/project.json" | bun -e 'const p=JSON.parse(await Bun.stdin.text()); console.log(p.name || "")' 2>/dev/null)
-  if [ "$PROJECT_NAME" = "$BP_BUILD" ]; then
-    log_success "Found project: $BP_BUILD at $PROJECT_PATH"
-  else
-    log_error "Project name mismatch: expected '$BP_BUILD', found '$PROJECT_NAME'"
-    exit 1
-  fi
-else
-  log_error "Project '$BP_BUILD' not found!"
-  log_info "Available project directories:"
-  find . -name "project.json" -not -path "./node_modules/*" 2>/dev/null | head -10 || log_info "No project.json files found"
   exit 1
 fi
 
-# 🏗️ Build the specified project with Nx
-log_step "Building $BP_BUILD with Nx (generatePackageJson enabled)"
+# 🏗️ Build the project
+log_step "Building $BP_BUILD"
 
-# Try building with Nx, but handle plugin errors gracefully
-log_info "Attempting Nx build..."
-if ! bunx nx build $BP_BUILD --configuration=production --verbose 2>&1; then
-  log_error "Nx build failed, likely due to Bun/plugin compatibility issues"
-  log_info "Attempting fallback build approach..."
-  
-  # Try without the problematic plugins by setting environment variables
-  log_info "Trying with plugin workarounds..."
-  NX_SKIP_PROJECT_GRAPH_CACHE=true NX_DISABLE_PROJECT_GRAPH_CACHE=true bunx nx build $BP_BUILD --configuration=production --verbose || {
-    log_error "Nx build failed completely. This might be a Bun/Nx compatibility issue."
-    log_info "Project path: $PROJECT_PATH"
-    log_info "Consider using Node.js by setting BP_NODE=true if the issue persists"
-    exit 1
-  }
-fi
-
-# Find the build output directory
-DIST_PATH=""
-for possible_path in \
-  "dist/apis/servers/${BP_BUILD#@newsoftds/}" \
-  "dist/${BP_BUILD#@newsoftds/}" \
-  "dist/$(echo $BP_BUILD | sed 's/@[^/]*\///')" \
-  "apps/${BP_BUILD#@newsoftds/}/dist" \
-  "web/packages/${BP_BUILD#@newsoftds/}/dist"
-do
-  if [ -d "$possible_path" ] && [ -f "$possible_path/package.json" ]; then
-    DIST_PATH="$possible_path"
-    break
-  fi
-done
-
-if [ -z "$DIST_PATH" ] || [ ! -f "$DIST_PATH/package.json" ]; then
-    log_error "Build output not found or missing package.json!"
-    log_info "Looked for generated package.json in common locations"
-    log_info "Make sure your project.json has 'generatePackageJson: true'"
-    exit 1
-fi
-
-log_success "Build completed - output in: $DIST_PATH"
-log_info "Generated package.json found: $(wc -l < $DIST_PATH/package.json) lines"
-
-# 🔧 Install production dependencies in dist folder
-log_step "Installing production dependencies in build output"
-cd "$DIST_PATH"
-
-# Debug what files exist in dist directory
-log_info "Files in dist directory:"
-ls -la
-
-# Show what dependencies will be installed
-DEP_COUNT=$(cat package.json | bun -e 'const p=JSON.parse(await Bun.stdin.text()); console.log(Object.keys(p.dependencies||{}).length)')
-log_info "Installing $DEP_COUNT production dependencies (from generated package.json)"
-
-# Check if there are any lockfiles that might cause workspace issues
-if [ -f bun.lock ] || [ -f bun.lockb ]; then
-  log_info "Found lockfile in dist directory - removing to avoid workspace conflicts"
-  rm -f bun.lock bun.lockb
-fi
-
-# Check for any workspace references in package.json
-if grep -q "workspace:" package.json; then
-  log_error "Found workspace: references in generated package.json - this should not happen!"
-  grep "workspace:" package.json || true
+# Determine project path - support both @newsoftds/name and path formats
+PROJECT_PATH=""
+if [[ "$BP_BUILD" == @* ]]; then
+  # It's a package name, try to find it
+  case $BP_BUILD in
+    "@newsoftds/api-gateway-server")
+      PROJECT_PATH="apis/servers/api-gateway-server"
+      ;;
+    "@newsoftds/api-clinic-server")
+      PROJECT_PATH="apis/servers/api-clinic-server"
+      ;;
+    "@newsoftds/api-university-server")
+      PROJECT_PATH="apis/servers/api-university-server"
+      ;;
+    "@newsoftds/portal-paciente")
+      PROJECT_PATH="web/packages/portal-paciente"
+      ;;
+    *)
+      # Try to auto-detect
+      for project_file in $(find . -name "package.json" -not -path "./node_modules/*" 2>/dev/null); do
+        project_name=$(cat "$project_file" | bun -e 'const p=JSON.parse(await Bun.stdin.text()); console.log(p.name || "")' 2>/dev/null)
+        if [ "$project_name" = "$BP_BUILD" ]; then
+          PROJECT_PATH=$(dirname "$project_file")
+          break
+        fi
+      done
+      ;;
+  esac
 else
-  log_info "No workspace: references found in generated package.json ✅"
+  # It's already a path
+  PROJECT_PATH="$BP_BUILD"
 fi
 
-# Install dependencies with explicit flags to avoid workspace resolution
-log_info "Running: bun install --production --no-save --no-optional"
-bun install --production --no-save --no-optional
-log_success "Production dependencies installed: $(du -sh node_modules 2>/dev/null | cut -f1 || echo "unknown size") in node_modules"
+if [ -z "$PROJECT_PATH" ] || [ ! -d "$PROJECT_PATH" ]; then
+  log_error "Project not found: $BP_BUILD"
+  log_info "Check that BP_BUILD is either a valid package name or path"
+  exit 1
+fi
+
+log_info "Project path: $PROJECT_PATH"
+cd "$PROJECT_PATH"
+
+# Check which build script to use
+if [ -f "package.json" ] && grep -q '"build:heroku"' package.json; then
+  log_info "Running build:heroku script"
+  bun run build:heroku
+elif [ -f "package.json" ] && grep -q '"build"' package.json; then
+  log_info "Running build script"
+  bun run build
+else
+  log_error "No build script found in package.json"
+  log_info "Add a 'build:heroku' or 'build' script to your package.json"
+  exit 1
+fi
+
+log_success "Build completed"
+
+# 📦 Check if dist directory was created
+if [ ! -d "dist" ]; then
+  log_error "Build did not create a dist directory"
+  exit 1
+fi
+
+# Move dist contents to app root
+log_step "Preparing deployment"
+cp -r dist/* $BUILD_DIR/
+cd $BUILD_DIR
+
+# 🔍 Check if we have a package.json in the build output
+if [ ! -f "package.json" ]; then
+  log_error "No package.json found in build output"
+  log_info "Your build script should generate a package.json in dist/"
+  exit 1
+fi
+
+# 📦 Install production dependencies
+log_step "Installing production dependencies"
+bun install --production --ignore-scripts
+log_success "Production dependencies installed"
+
+# 🎯 Create Procfile with BP_START command
+log_step "Creating Procfile"
+echo "web: $BP_START" > Procfile
+log_success "Created Procfile with: web: $BP_START"
 
 # 🧹 Cleanup to reduce slug size
-cd $HOME
-if [ "$BP_CLEAN" = "true" ]; then
-    log_step "Cleaning up to reduce slug size"
-    
-    # Remove monorepo node_modules (we have prod deps in dist now)
-    rm -rf node_modules
-    log_info "Removed root node_modules"
-    
-    # Remove build caches
-    rm -rf .nx .cache tmp
-    log_info "Removed build caches"
-    
-    # Remove source files we don't need at runtime  
-    rm -rf apis/servers apis/clients apis/packages web desktop packages utils tools
-    log_info "Removed source directories"
-    
-    # Keep only the built app and essential files
-    SLUG_SIZE=$(du -sh . | cut -f1)
-    log_success "Cleanup complete - slug size: $SLUG_SIZE"
+if is_true "$BP_CLEAN"; then
+  log_step "Cleaning up to reduce slug size"
+  
+  # Remove source directories
+  rm -rf apis web desktop packages utils tools apps
+  rm -rf node_modules/.cache
+  rm -rf .nx .cache tmp
+  
+  # Remove build artifacts
+  rm -rf *.md *.lock *.lockb tsconfig*.json nx.json .git*
+  
+  SLUG_SIZE=$(du -sh . | cut -f1)
+  log_success "Cleanup complete - final slug size: $SLUG_SIZE"
 else
-    log_info "Skipping cleanup (BP_CLEAN=false)"
+  log_info "Skipping cleanup (BP_CLEAN=false)"
 fi
 
 # 📊 Final summary
 log_header "Build Summary"
 log_success "Project: $BP_BUILD"
-log_success "Built to: $DIST_PATH"
-log_success "Dependencies: $DEP_COUNT packages installed"
-log_success "Runtime: Bun $(bun --version) + Node $(node --version)"
+log_success "Built from: $PROJECT_PATH"
+log_success "Start command: $BP_START"
+log_success "Slug size: $(du -sh . | cut -f1)"
+if is_true "$BP_NODE"; then
+  log_success "Runtime: Bun $(bun --version) + Node $(node --version)"
+else
+  log_success "Runtime: Bun $(bun --version)"
+fi
 
-# 🎯 Deployment instructions
 log_info "Your app will start with: $BP_START"
-log_info "To change start command: heroku config:set BP_START='bun ./index.js'"
-log_info "No Procfile needed - start command is configured via BP_START variable"
+log_info "To change: heroku config:set BP_START='new-command'"
 
 log_header "✅ Build Complete - Ready for deployment!"
