@@ -1,92 +1,36 @@
 #!/usr/bin/env bash
 # Release script for Nx Monorepo Buildpack
-# Defines the web process for Heroku
+# This script runs AFTER compile and just outputs the YAML config
+# It doesn't get ENV_DIR - environment variables are already set by Heroku
 
 BUILD_DIR=${1:-.}
-ENV_DIR=${3:-}
 
-# Export environment variables from Heroku (use the proven function from compile script)
-export_env_dir() {
-  env_dir=$1
-  acceptlist_regex=${2:-''}
-  denylist_regex=${3:-'^(PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH)$'}
-  if [ -d "$env_dir" ]; then
-    echo "🔍 Reading env vars from: $env_dir" >&2
-    for e in $(ls $env_dir); do
-      echo "   📋 Found env var: $e" >&2
-      echo "$e" | grep -E "$acceptlist_regex" | grep -qvE "$denylist_regex" &&
-      export "$e=$(cat $env_dir/$e)"
-      echo "   ✅ Exported: $e=$(cat $env_dir/$e)" >&2
-    done
-  else
-    echo "❌ ENV_DIR not found: $env_dir" >&2
-  fi
-}
+# At this point, Heroku has already set all config vars as environment variables
+# So we can just read them directly
 
-export_env_dir $ENV_DIR
+# Debug what we have
+echo "🔍 Release script running..." >&2
+echo "   BUILD_DIR: $BUILD_DIR" >&2
+echo "   BP_START from env: $BP_START" >&2
+echo "   Current directory: $(pwd)" >&2
 
-# Configuration - no defaults, require explicit values
-BP_BUILD=${BP_BUILD}
-BP_START=${BP_START}
-BP_NODE=${BP_NODE:-"false"}
-
-# Debug environment variables
-echo "🔍 Environment variable check:" >&2
-echo "   BP_BUILD='$BP_BUILD'" >&2  
-echo "   BP_START='$BP_START'" >&2
-echo "   BP_NODE='$BP_NODE'" >&2
-
-# Validate required environment variables
-if [ -z "$BP_BUILD" ] || [ -z "$BP_START" ]; then
-  echo "ERROR: Missing required environment variables" >&2
-  echo "Please set: heroku config:set BP_BUILD=@newsoftds/your-project BP_START='bun ./index.js'" >&2
-  echo "Current values:" >&2
-  echo "   BP_BUILD='${BP_BUILD:-<not set>}'" >&2
-  echo "   BP_START='${BP_START:-<not set>}'" >&2
-  exit 1
-fi
-
-# Try to find the built project directory
-DIST_PATH=""
-for possible_path in \
-  "dist/apis/servers/${BP_BUILD#@newsoftds/}" \
-  "dist/${BP_BUILD#@newsoftds/}" \
-  "dist/$(echo $BP_BUILD | sed 's/@[^/]*\///')" \
-  "apps/${BP_BUILD#@newsoftds/}/dist" \
-  "web/packages/${BP_BUILD#@newsoftds/}/dist"
-do
-  if [ -d "$possible_path" ] && [ -f "$possible_path/package.json" ]; then
-    DIST_PATH="$possible_path"
-    break
-  fi
-done
-
-# Smart start command handling
-if [[ "$BP_START" == *"cd "* ]]; then
-  # User provided full command with cd, use as-is
-  START_COMMAND="$BP_START"
+# Check if we have a Procfile (created by compile script)
+if [ -f "$BUILD_DIR/Procfile" ]; then
+  echo "✅ Found Procfile, using it for process types" >&2
+  WEB_COMMAND=$(grep "^web:" "$BUILD_DIR/Procfile" | sed 's/^web: *//')
+  echo "   Web command from Procfile: $WEB_COMMAND" >&2
 else
-  # User provided just the command, prepend cd to dist path
-  START_COMMAND="cd $DIST_PATH && $BP_START"
+  echo "⚠️  No Procfile found, using BP_START directly" >&2
+  WEB_COMMAND="${BP_START:-bun index.js}"
 fi
 
 # Generate the release configuration
-if [ "$BP_NODE" = "true" ]; then
-  cat << EOF
----
-config_vars:
-  BUN_DIR: /app/.heroku/cache
-  PATH: /app/.heroku/node/bin:/app/.heroku/bin:\$PATH
-default_process_types:
-  web: $START_COMMAND
-EOF
-else
-  cat << EOF
+# This YAML tells Heroku how to run the app
+cat << EOF
 ---
 config_vars:
   BUN_DIR: /app/.heroku/cache
   PATH: /app/.heroku/bin:\$PATH
 default_process_types:
-  web: $START_COMMAND
+  web: $WEB_COMMAND
 EOF
-fi

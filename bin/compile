@@ -289,18 +289,32 @@ fi
 if is_true "$BP_CLEAN"; then
   log_step "Cleaning up to reduce slug size"
   
-  # Remove source directories
-  rm -rf apis web desktop packages utils tools apps
-  rm -rf node_modules/.cache
-  rm -rf .nx .cache tmp
+  # Show what's taking space before cleanup
+  log_info "Largest directories before cleanup:"
+  du -sh * 2>/dev/null | sort -rh | head -10 || true
   
-  # Remove build artifacts
-  rm -rf *.md *.lock *.lockb tsconfig*.json nx.json .git*
+  # Remove source directories (we already copied dist to root)
+  rm -rf apis web desktop packages utils tools apps
+  log_info "Removed source directories"
+  
+  # Remove the massive root node_modules (we have minimal ones in dist)
+  rm -rf node_modules
+  log_info "Removed root node_modules"
+  
+  # Remove caches and build artifacts
+  rm -rf .nx .cache tmp .heroku/cache
+  rm -rf *.md *.lock *.lockb tsconfig*.json nx.json .git* biome.json
+  log_info "Removed build artifacts and caches"
+  
+  # Show what's left
+  log_info "Remaining files after cleanup:"
+  du -sh * 2>/dev/null | sort -rh | head -10 || true
   
   SLUG_SIZE=$(du -sh . | cut -f1)
   log_success "Cleanup complete - final slug size: $SLUG_SIZE"
 else
-  log_info "Skipping cleanup (BP_CLEAN=false)"
+  log_info "Skipping cleanup (BP_CLEAN not set to true)"
+  log_info "Set BP_CLEAN=true to reduce slug size"
 fi
 
 # 📊 Final summary
