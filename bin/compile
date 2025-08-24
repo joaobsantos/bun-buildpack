@@ -249,8 +249,24 @@ fi
 
 # 📦 Install production dependencies
 log_step "Installing production dependencies"
-# Don't use frozen lockfile since we're generating a new package.json
-bun install --production --ignore-scripts --no-frozen-lockfile
+
+# Remove any existing lockfile to ensure fresh install
+rm -f bun.lockb bun.lock package-lock.json yarn.lock
+log_info "Removed any existing lockfiles"
+
+# Force Bun to not use frozen lockfile (Heroku might set CI=true)
+export CI=false
+export BUN_INSTALL_FROZEN_LOCKFILE=false
+
+# Install with explicit no-frozen-lockfile
+log_info "Running: bun install --production --ignore-scripts --no-frozen-lockfile"
+bun install --production --ignore-scripts --no-frozen-lockfile || {
+  log_error "Installation failed, trying without production flag..."
+  bun install --ignore-scripts --no-frozen-lockfile || {
+    log_error "Installation failed completely"
+    exit 1
+  }
+}
 log_success "Production dependencies installed"
 
 # 🎯 Create Procfile with BP_START command
