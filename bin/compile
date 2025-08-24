@@ -130,10 +130,14 @@ elif [ "$BP_BUN_VERSION" != "latest" ]; then
 fi
 
 export BUN_INSTALL=$BUILD_DIR/.heroku
-export BUN_DIR=$BUILD_DIR/.heroku/cache
+# Don't set BUN_DIR to avoid massive caching
+# export BUN_DIR=$BUILD_DIR/.heroku/cache
 curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION
 export PATH="$BUN_INSTALL/bin:$PATH"
 log_success "Bun installed: $(bun --version)"
+
+# Check what Bun installed
+log_info "Bun installation size: $(du -sh $BUILD_DIR/.heroku | cut -f1)"
 
 # 📋 Setup runtime environment
 PROFILE_PATH="$BUILD_DIR/.profile.d/bun.sh"
@@ -313,13 +317,33 @@ if is_true "$BP_CLEAN"; then
     rm -rf .git
   fi
   
-  # If BP_NODE is false, remove Node.js to save space
-  if ! is_true "$BP_NODE"; then
-    if [ -d ".heroku/node" ]; then
-      NODE_SIZE=$(du -sh .heroku/node | cut -f1)
-      log_info "Removing Node.js installation (size: $NODE_SIZE) - BP_NODE=false"
-      rm -rf .heroku/node
+  # Check what's in .heroku directory
+  if [ -d ".heroku" ]; then
+    log_info "Contents of .heroku directory:"
+    du -sh .heroku/* 2>/dev/null | sort -rh | head -10 || true
+    
+    # Remove ALL cache directories - they can be HUGE
+    rm -rf .heroku/cache .heroku/tmp .heroku/src .heroku/plugins .heroku/.cache
+    
+    # Also check for any package caches
+    find .heroku -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
+    find .heroku -type d -name ".cache" -exec rm -rf {} + 2>/dev/null || true
+    find .heroku -type d -name "cache" -exec rm -rf {} + 2>/dev/null || true
+    
+    log_info "Cleaned .heroku directory aggressively"
+    
+    # If BP_NODE is false, remove Node.js to save space
+    if ! is_true "$BP_NODE"; then
+      if [ -d ".heroku/node" ]; then
+        NODE_SIZE=$(du -sh .heroku/node | cut -f1)
+        log_info "Removing Node.js installation (size: $NODE_SIZE) - BP_NODE=false"
+        rm -rf .heroku/node
+      fi
     fi
+    
+    # Check final .heroku size
+    HEROKU_SIZE=$(du -sh .heroku | cut -f1)
+    log_info "Final .heroku directory size: $HEROKU_SIZE"
   fi
   
   # Show what's left

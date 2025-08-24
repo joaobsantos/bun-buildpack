@@ -1,36 +1,29 @@
 #!/usr/bin/env bash
 # Release script for Nx Monorepo Buildpack
 # This script runs AFTER compile and just outputs the YAML config
-# It doesn't get ENV_DIR - environment variables are already set by Heroku
 
 BUILD_DIR=${1:-.}
 
-# At this point, Heroku has already set all config vars as environment variables
-# So we can just read them directly
-
-# Debug what we have
+# Debug output to stderr (won't affect YAML output)
 echo "🔍 Release script running..." >&2
 echo "   BUILD_DIR: $BUILD_DIR" >&2
-echo "   BP_START from env: $BP_START" >&2
-echo "   Current directory: $(pwd)" >&2
 
 # Check if we have a Procfile (created by compile script)
 if [ -f "$BUILD_DIR/Procfile" ]; then
-  echo "✅ Found Procfile, using it for process types" >&2
-  WEB_COMMAND=$(grep "^web:" "$BUILD_DIR/Procfile" | sed 's/^web: *//')
-  echo "   Web command from Procfile: $WEB_COMMAND" >&2
+  echo "✅ Found Procfile" >&2
+  # Extract the web command, handling special characters
+  WEB_COMMAND=$(grep "^web:" "$BUILD_DIR/Procfile" | sed 's/^web: *//' | sed 's/"/\\"/g')
+  echo "   Web command: $WEB_COMMAND" >&2
 else
-  echo "⚠️  No Procfile found, using BP_START directly" >&2
-  WEB_COMMAND="${BP_START:-bun index.js}"
+  echo "⚠️  No Procfile found, using default" >&2
+  WEB_COMMAND="bun index.js"
 fi
 
-# Generate the release configuration
-# This YAML tells Heroku how to run the app
-cat << EOF
----
-config_vars:
-  BUN_DIR: "/app/.heroku/cache"
-  PATH: "/app/.heroku/bin:\$PATH"
-default_process_types:
-  web: "$WEB_COMMAND"
-EOF
+# Generate valid YAML - be very careful with formatting
+# Use printf to ensure proper escaping
+printf "---\n"
+printf "config_vars:\n"
+printf '  BUN_DIR: "/app/.heroku/cache"\n'
+printf '  PATH: "/app/.heroku/bin:$PATH"\n'
+printf "default_process_types:\n"
+printf '  web: "%s"\n' "$WEB_COMMAND"
