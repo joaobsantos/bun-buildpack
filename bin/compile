@@ -61,8 +61,9 @@ fi
 
 if [ -z "$BP_START" ]; then
   log_error "BP_START environment variable is required!"
-  log_info "Set it with: heroku config:set BP_START='bun index.js'"
-  log_info "Common examples: 'bun start', 'bun index.js', 'node dist/server.js'"
+  log_info "Set it with: heroku config:set BP_START=start"
+  log_info "Can be a script name (start, build:start) or command (bun index.js)"
+  log_info "Script names are resolved from the built package.json"
   VALIDATION_FAILED=true
 fi
 
@@ -253,8 +254,19 @@ log_success "Production dependencies installed"
 
 # 🎯 Create Procfile with BP_START command
 log_step "Creating Procfile"
-echo "web: $BP_START" > Procfile
-log_success "Created Procfile with: web: $BP_START"
+
+# Check if BP_START is a script name or a direct command
+if [[ "$BP_START" != *" "* ]] && [ -f "package.json" ] && grep -q "\"$BP_START\"" package.json; then
+  # It's a script name, extract the actual command from package.json
+  log_info "BP_START '$BP_START' is a package.json script"
+  ACTUAL_COMMAND=$(cat package.json | bun -e "const p=JSON.parse(await Bun.stdin.text()); console.log(p.scripts?.['$BP_START'] || '$BP_START')" 2>/dev/null || echo "$BP_START")
+  echo "web: $ACTUAL_COMMAND" > Procfile
+  log_success "Created Procfile with: web: $ACTUAL_COMMAND (from script '$BP_START')"
+else
+  # It's a direct command
+  echo "web: $BP_START" > Procfile
+  log_success "Created Procfile with: web: $BP_START"
+fi
 
 # 🧹 Cleanup to reduce slug size
 if is_true "$BP_CLEAN"; then
