@@ -249,7 +249,8 @@ fi
 
 # 📦 Install production dependencies
 log_step "Installing production dependencies"
-bun install --production --ignore-scripts
+# Don't use frozen lockfile since we're generating a new package.json
+bun install --production --ignore-scripts --no-frozen-lockfile
 log_success "Production dependencies installed"
 
 # 🎯 Create Procfile with BP_START command
