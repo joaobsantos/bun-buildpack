@@ -116,6 +116,10 @@ fi
 # 🥯 Install Bun
 log_step "Installing Bun"
 
+# Clean up any previous Bun installations to avoid bloat
+rm -rf $BUILD_DIR/.heroku/cache $BUILD_DIR/.heroku/.cache $BUILD_DIR/.heroku/install
+log_info "Cleaned previous Bun cache"
+
 # Determine Bun version
 INSTALL_VERSION_OPTION=""
 if [ -f runtime.bun.txt ]; then
@@ -130,13 +134,14 @@ elif [ "$BP_BUN_VERSION" != "latest" ]; then
 fi
 
 export BUN_INSTALL=$BUILD_DIR/.heroku
-# Don't set BUN_DIR to avoid massive caching
-# export BUN_DIR=$BUILD_DIR/.heroku/cache
+# Explicitly set BUN_DIR to a temp location that we'll clean
+export BUN_DIR=/tmp/bun-cache-$$
 curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION
 export PATH="$BUN_INSTALL/bin:$PATH"
 log_success "Bun installed: $(bun --version)"
 
-# Check what Bun installed
+# Clean up Bun temp cache immediately
+rm -rf /tmp/bun-cache-*
 log_info "Bun installation size: $(du -sh $BUILD_DIR/.heroku | cut -f1)"
 
 # 📋 Setup runtime environment
@@ -146,12 +151,10 @@ if is_true "$BP_NODE"; then
   cat > $PROFILE_PATH << 'EOF'
 export PATH="$HOME/.heroku/node/bin:$PATH"
 export PATH="$HOME/.heroku/bin:$PATH"
-export BUN_DIR="$HOME/.heroku/cache"
 EOF
 else
   cat > $PROFILE_PATH << 'EOF'
 export PATH="$HOME/.heroku/bin:$PATH"
-export BUN_DIR="$HOME/.heroku/cache"
 EOF
 fi
 

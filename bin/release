@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Release script for Nx Monorepo Buildpack
-# This script runs AFTER compile and just outputs the YAML config
+# This script runs AFTER compile and outputs YAML config
 
 BUILD_DIR=${1:-.}
 
@@ -11,19 +11,17 @@ echo "   BUILD_DIR: $BUILD_DIR" >&2
 # Check if we have a Procfile (created by compile script)
 if [ -f "$BUILD_DIR/Procfile" ]; then
   echo "✅ Found Procfile" >&2
-  # Extract the web command, handling special characters
-  WEB_COMMAND=$(grep "^web:" "$BUILD_DIR/Procfile" | sed 's/^web: *//' | sed 's/"/\\"/g')
+  # Extract the web command
+  WEB_COMMAND=$(grep "^web:" "$BUILD_DIR/Procfile" | sed 's/^web: *//')
   echo "   Web command: $WEB_COMMAND" >&2
 else
   echo "⚠️  No Procfile found, using default" >&2
   WEB_COMMAND="bun index.js"
 fi
 
-# Generate valid YAML - be very careful with formatting
-# Use printf to ensure proper escaping
-printf "---\n"
-printf "config_vars:\n"
-printf '  BUN_DIR: "/app/.heroku/cache"\n'
-printf '  PATH: "/app/.heroku/bin:$PATH"\n'
-printf "default_process_types:\n"
-printf '  web: "%s"\n' "$WEB_COMMAND"
+# Generate valid YAML - Heroku expects this exact format without ---
+cat <<EOF
+addons: []
+default_process_types:
+  web: $WEB_COMMAND
+EOF
