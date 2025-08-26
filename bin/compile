@@ -265,15 +265,28 @@ log_info "Removed any existing lockfiles"
 export CI=false
 export BUN_INSTALL_FROZEN_LOCKFILE=false
 
-# Install with explicit no-frozen-lockfile
-log_info "Running: bun install --production --ignore-scripts --no-frozen-lockfile"
-bun install --production --ignore-scripts --no-frozen-lockfile || {
-  log_error "Installation failed, trying without production flag..."
-  bun install --ignore-scripts --no-frozen-lockfile || {
-    log_error "Installation failed completely"
-    exit 1
+# Check if we should use npm or bun for install
+if is_true "$BP_NODE" && [ -f "package.json" ]; then
+  # Use npm for production install when Node is available
+  log_info "Running: npm install --production --ignore-scripts"
+  npm install --production --ignore-scripts || {
+    log_error "npm installation failed, trying with bun..."
+    bun install --production --ignore-scripts --no-frozen-lockfile || {
+      log_error "Installation failed completely"
+      exit 1
+    }
   }
-}
+else
+  # Use bun for production install
+  log_info "Running: bun install --production --ignore-scripts --no-frozen-lockfile"
+  bun install --production --ignore-scripts --no-frozen-lockfile || {
+    log_error "Installation failed, trying without production flag..."
+    bun install --ignore-scripts --no-frozen-lockfile || {
+      log_error "Installation failed completely"
+      exit 1
+    }
+  }
+fi
 log_success "Production dependencies installed"
 
 # 🎯 Create Procfile with BP_START command
@@ -384,6 +397,36 @@ if is_true "$BP_CLEAN"; then
 else
   log_info "Skipping cleanup (BP_CLEAN not set to true)"
   log_info "Set BP_CLEAN=true to reduce slug size"
+fi
+
+# 🔍 Verify executables exist
+log_step "Verifying runtime executables"
+if is_true "$BP_NODE"; then
+  if [ -f ".heroku/node/bin/node" ]; then
+    log_success "Node executable found: .heroku/node/bin/node"
+    if [ -f ".heroku/node/bin/npm" ]; then
+      log_success "NPM executable found: .heroku/node/bin/npm"
+    else
+      log_error "NPM executable NOT found!"
+    fi
+  else
+    log_error "Node executable NOT found!"
+  fi
+fi
+
+if [ -f ".heroku/bin/bun" ]; then
+  log_success "Bun executable found: .heroku/bin/bun"
+else
+  log_error "Bun executable NOT found!"
+fi
+
+# Check if serve is installed in node_modules
+if [ -f "node_modules/.bin/serve" ]; then
+  log_success "Serve installed in node_modules"
+elif [ -f "node_modules/serve/lib/main.js" ]; then
+  log_success "Serve package found in node_modules"
+else
+  log_info "Serve not found in node_modules (may use global)"
 fi
 
 # 📊 Final summary
