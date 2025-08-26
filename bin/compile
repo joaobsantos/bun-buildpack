@@ -279,17 +279,25 @@ log_success "Production dependencies installed"
 # 🎯 Create Procfile with BP_START command
 log_step "Creating Procfile"
 
+# Ensure PATH includes our installed tools
+PATH_PREFIX=""
+if is_true "$BP_NODE"; then
+  PATH_PREFIX="PATH=\$HOME/.heroku/node/bin:\$HOME/.heroku/bin:\$PATH "
+else
+  PATH_PREFIX="PATH=\$HOME/.heroku/bin:\$PATH "
+fi
+
 # Check if BP_START is a script name or a direct command
 if [[ "$BP_START" != *" "* ]] && [ -f "package.json" ] && grep -q "\"$BP_START\"" package.json; then
   # It's a script name, extract the actual command from package.json
   log_info "BP_START '$BP_START' is a package.json script"
   ACTUAL_COMMAND=$(cat package.json | bun -e "const p=JSON.parse(await Bun.stdin.text()); console.log(p.scripts?.['$BP_START'] || '$BP_START')" 2>/dev/null || echo "$BP_START")
-  echo "web: $ACTUAL_COMMAND" > Procfile
-  log_success "Created Procfile with: web: $ACTUAL_COMMAND (from script '$BP_START')"
+  echo "web: ${PATH_PREFIX}$ACTUAL_COMMAND" > Procfile
+  log_success "Created Procfile with: web: ${PATH_PREFIX}$ACTUAL_COMMAND (from script '$BP_START')"
 else
   # It's a direct command
-  echo "web: $BP_START" > Procfile
-  log_success "Created Procfile with: web: $BP_START"
+  echo "web: ${PATH_PREFIX}$BP_START" > Procfile
+  log_success "Created Procfile with: web: ${PATH_PREFIX}$BP_START"
 fi
 
 # 🧹 Cleanup to reduce slug size
@@ -325,15 +333,23 @@ if is_true "$BP_CLEAN"; then
     log_info "Contents of .heroku directory:"
     du -sh .heroku/* 2>/dev/null | sort -rh | head -10 || true
     
-    # Remove ALL cache directories - they can be HUGE
+    # Remove cache directories but keep bin and node
     rm -rf .heroku/cache .heroku/tmp .heroku/src .heroku/plugins .heroku/.cache
+    
+    # CRITICAL: Remove the massive install directory that Bun creates
+    # but ONLY if bun executable is properly in .heroku/bin
+    if [ -f ".heroku/bin/bun" ] && [ -d ".heroku/install" ]; then
+      INSTALL_SIZE=$(du -sh .heroku/install | cut -f1)
+      log_info "Removing .heroku/install directory (size: $INSTALL_SIZE) - bun is in .heroku/bin"
+      rm -rf .heroku/install
+    fi
     
     # Also check for any package caches
     find .heroku -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
     find .heroku -type d -name ".cache" -exec rm -rf {} + 2>/dev/null || true
     find .heroku -type d -name "cache" -exec rm -rf {} + 2>/dev/null || true
     
-    log_info "Cleaned .heroku directory aggressively"
+    log_info "Cleaned .heroku directory (kept bin and node)"
     
     # If BP_NODE is false, remove Node.js to save space
     if ! is_true "$BP_NODE"; then
