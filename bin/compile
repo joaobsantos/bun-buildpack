@@ -325,9 +325,9 @@ if is_true "$BP_CLEAN"; then
   rm -rf apis web desktop packages utils tools apps
   log_info "Removed source directories"
   
-  # Remove the massive root node_modules (we have minimal ones in dist)
-  rm -rf node_modules
-  log_info "Removed root node_modules"
+  # DON'T remove node_modules - we need it for runtime!
+  # The production dependencies are already minimal
+  log_info "Keeping node_modules for runtime dependencies"
   
   # Remove caches and build artifacts
   rm -rf .nx .cache tmp .heroku/cache
@@ -406,8 +406,18 @@ if is_true "$BP_NODE"; then
     log_success "Node executable found: .heroku/node/bin/node"
     if [ -f ".heroku/node/bin/npm" ]; then
       log_success "NPM executable found: .heroku/node/bin/npm"
+    elif [ -f ".heroku/node/lib/node_modules/npm/bin/npm-cli.js" ]; then
+      # Create npm symlink if it doesn't exist
+      ln -sf "../lib/node_modules/npm/bin/npm-cli.js" ".heroku/node/bin/npm"
+      log_success "Created NPM symlink"
     else
       log_error "NPM executable NOT found!"
+    fi
+    
+    # Also check for npx
+    if [ ! -f ".heroku/node/bin/npx" ] && [ -f ".heroku/node/lib/node_modules/npm/bin/npx-cli.js" ]; then
+      ln -sf "../lib/node_modules/npm/bin/npx-cli.js" ".heroku/node/bin/npx"
+      log_success "Created NPX symlink"
     fi
   else
     log_error "Node executable NOT found!"
