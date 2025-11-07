@@ -16,7 +16,7 @@ BUILD_DIR=${1:-.}
 CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
 
-log_header "NewsoftDS Monorepo Buildpack v3.0 (Simple + Complete)"
+log_header "NewsoftDS Monorepo Buildpack v3.1 (Bun 1.2.23 Forced)"
 
 # 🔧 Export environment variables from Heroku
 export_env_dir() {
@@ -35,9 +35,11 @@ export_env_dir $ENV_DIR
 # ⚙️ Configuration with defaults
 BP_NODE=${BP_NODE:-"false"}
 BP_NODE_VERSION=${BP_NODE_VERSION:-"22.11.0"}
-BP_BUN_VERSION=${BP_BUN_VERSION:-"latest"}
 BP_INSTALL=${BP_INSTALL:-"bun install"}
 BP_CLEAN=${BP_CLEAN:-"true"}
+
+# FORCE BUN VERSION 1.2.23 for compatibility
+FORCED_BUN_VERSION="1.2.23"
 
 # Helper function to check boolean values
 is_true() {
@@ -82,7 +84,7 @@ if is_true "$BP_NODE"; then
 else
   log_info "Node.js: disabled (Bun only)"
 fi
-log_info "Bun version: $BP_BUN_VERSION"
+log_info "FORCING Bun version: $FORCED_BUN_VERSION (required for compatibility)"
 
 # 🏗️ Setup build environment
 HEROKU_DIR=$BUILD_DIR/.heroku
@@ -113,32 +115,32 @@ else
   log_step "Skipping Node.js installation (BP_NODE=false)"
 fi
 
-# 🥯 Install Bun
-log_step "Installing Bun"
+# 🥯 Install Bun (FORCED VERSION 1.2.23)
+log_step "Installing Bun $FORCED_BUN_VERSION (FORCED VERSION)"
 
 # Clean up any previous Bun installations to avoid bloat
 rm -rf $BUILD_DIR/.heroku/cache $BUILD_DIR/.heroku/.cache $BUILD_DIR/.heroku/install
 log_info "Cleaned previous Bun cache"
 
-# Determine Bun version
-INSTALL_VERSION_OPTION=""
-if [ -f runtime.bun.txt ]; then
-  INSTALL_VERSION_OPTION="-s bun-$(cat runtime.bun.txt)"
-  log_info "Using Bun version from runtime.bun.txt: $(cat runtime.bun.txt)"
-elif [ -f runtime.txt ]; then
-  INSTALL_VERSION_OPTION="-s bun-$(cat runtime.txt)"
-  log_info "Using Bun version from runtime.txt: $(cat runtime.txt)"
-elif [ "$BP_BUN_VERSION" != "latest" ]; then
-  INSTALL_VERSION_OPTION="-s bun-$BP_BUN_VERSION"
-  log_info "Using Bun version from BP_BUN_VERSION: $BP_BUN_VERSION"
-fi
-
 export BUN_INSTALL=$BUILD_DIR/.heroku
 # Explicitly set BUN_DIR to a temp location that we'll clean
 export BUN_DIR=/tmp/bun-cache-$$
-curl -fsSL https://bun.sh/install | bash $INSTALL_VERSION_OPTION
+
+# The Bun install script expects format: bun-vX.Y.Z (with 'v' prefix)
+BUN_INSTALL_TAG="bun-v$FORCED_BUN_VERSION"
+log_info "Downloading Bun from tag: $BUN_INSTALL_TAG"
+curl -fsSL https://bun.sh/install | bash -s "$BUN_INSTALL_TAG"
+
 export PATH="$BUN_INSTALL/bin:$PATH"
 log_success "Bun installed: $(bun --version)"
+
+# Verify we got the correct version
+INSTALLED_VERSION=$(bun --version)
+if [ "$INSTALLED_VERSION" != "$FORCED_BUN_VERSION" ]; then
+  log_error "Bun version mismatch! Expected $FORCED_BUN_VERSION but got $INSTALLED_VERSION"
+  exit 1
+fi
+log_success "Verified Bun version: $FORCED_BUN_VERSION ✅"
 
 # Clean up Bun temp cache immediately
 rm -rf /tmp/bun-cache-*
