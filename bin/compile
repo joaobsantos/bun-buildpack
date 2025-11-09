@@ -231,8 +231,9 @@ mkdir -p $DEPLOY_DIR
 cp -r dist/* $DEPLOY_DIR/
 cp $BUILD_DIR/package.json $DEPLOY_DIR/
 cp $BUILD_DIR/bun.lockb $DEPLOY_DIR/ 2>/dev/null || true
-# CRITICAL: Copy .heroku (contains Bun runtime) to deployment
+# CRITICAL: Copy .heroku (contains Bun runtime) and .profile.d (sets PATH) to deployment
 cp -r $BUILD_DIR/.heroku $DEPLOY_DIR/ 2>/dev/null || true
+cp -r $BUILD_DIR/.profile.d $DEPLOY_DIR/ 2>/dev/null || true
 
 cd $DEPLOY_DIR
 
