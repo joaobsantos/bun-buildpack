@@ -289,6 +289,14 @@ rm -rf apis web desktop packages utils tools apps 2>/dev/null || true
 rm -rf .nx .cache tmp .git 2>/dev/null || true
 rm -rf *.md *.lock *.lockb tsconfig*.json nx.json biome.json 2>/dev/null || true
 
+# CRITICAL: Remove build-time node_modules (1.4GB!)
+# For web projects, we have 0 runtime deps, so delete monorepo node_modules
+# For API projects, we skip this - node_modules has production deps
+if [ "$IS_WEB_PROJECT" = true ]; then
+  log_info "Removing build-time node_modules"
+  rm -rf node_modules 2>/dev/null || true
+fi
+
 # Clean Bun cache/tmp but KEEP .heroku/bin (where Bun is installed!)
 rm -rf .heroku/cache .heroku/tmp .heroku/install 2>/dev/null || true
 
