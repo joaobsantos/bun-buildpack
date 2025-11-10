@@ -225,17 +225,12 @@ fi
 # 🚀 Prepare deployment
 log_step "Preparing deployment"
 
-DEPLOY_DIR="/tmp/deploy-$$"
-mkdir -p $DEPLOY_DIR
+# Move back to BUILD_DIR to prepare final slug
+cd $BUILD_DIR
 
-cp -r dist/* $DEPLOY_DIR/
-cp $BUILD_DIR/package.json $DEPLOY_DIR/
-cp $BUILD_DIR/bun.lockb $DEPLOY_DIR/ 2>/dev/null || true
-# CRITICAL: Copy .heroku (contains Bun runtime) and .profile.d (sets PATH) to deployment
-cp -r $BUILD_DIR/.heroku $DEPLOY_DIR/ 2>/dev/null || true
-cp -r $BUILD_DIR/.profile.d $DEPLOY_DIR/ 2>/dev/null || true
-
-cd $DEPLOY_DIR
+# Move dist contents to root (where Heroku expects them)
+log_info "Moving dist/* to root"
+cp -r $PROJECT_PATH/dist/* .
 
 # 📦 Install production dependencies with --filter
 log_step "Installing production dependencies"
@@ -251,13 +246,6 @@ bun install --filter "$BP_BUILD" --production --ignore-scripts > /dev/null 2>&1 
 
 PACKAGE_COUNT=$(ls -1 node_modules 2>/dev/null | wc -l)
 log_success "Installed $PACKAGE_COUNT packages"
-
-# Replace BUILD_DIR with deployment
-cd $BUILD_DIR
-rm -rf * .* 2>/dev/null || true
-cp -r $DEPLOY_DIR/* .
-cp -r $DEPLOY_DIR/.heroku . 2>/dev/null || true
-rm -rf $DEPLOY_DIR
 
 # 🎯 Create Procfile
 log_step "Creating Procfile"
@@ -284,10 +272,15 @@ log_success "Procfile created"
 # 🧹 Cleanup
 log_step "Cleanup"
 
+# Remove source directories (NOT needed at runtime)
 rm -rf apis web desktop packages utils tools apps 2>/dev/null || true
 rm -rf .nx .cache tmp .git 2>/dev/null || true
 rm -rf *.md *.lock *.lockb tsconfig*.json nx.json biome.json 2>/dev/null || true
+
+# Clean Bun cache/tmp but KEEP .heroku/bin (where Bun is installed!)
 rm -rf .heroku/cache .heroku/tmp .heroku/install 2>/dev/null || true
+
+# Keep .heroku/bin and .profile.d - they're needed at runtime!
 
 SLUG_SIZE=$(du -sh . 2>/dev/null | cut -f1)
 log_success "Slug size: $SLUG_SIZE"
