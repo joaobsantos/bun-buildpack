@@ -232,20 +232,32 @@ cd $BUILD_DIR
 log_info "Moving dist/* to root"
 cp -r $PROJECT_PATH/dist/* .
 
-# 📦 Install production dependencies with --filter
+# 📦 Install production dependencies
 log_step "Installing production dependencies"
 
-bun install --filter "$BP_BUILD" --production --ignore-scripts > /dev/null 2>&1 || {
-  log_error "Filter install failed, trying fallback..."
+# For web projects with server.ts, no dependencies needed!
+if [ "$IS_WEB_PROJECT" = true ] && [ -f "server.ts" ]; then
+  log_info "Web project with Bun server - no dependencies needed"
+  log_success "Installed 0 packages"
+else
+  # For API projects, we need dependencies
+  # Remove monorepo package.json/lockb, use only the project's generated one
+  rm -f package.json bun.lockb 2>/dev/null || true
+
+  # Copy the project's package.json if it was generated
+  if [ -f "$PROJECT_PATH/package.json" ]; then
+    cp "$PROJECT_PATH/package.json" .
+  fi
+
   bun install --production --ignore-scripts > /dev/null 2>&1 || {
     log_error "Production dependency installation failed"
     bun install --production --ignore-scripts  # Show errors
     exit 1
   }
-}
 
-PACKAGE_COUNT=$(ls -1 node_modules 2>/dev/null | wc -l)
-log_success "Installed $PACKAGE_COUNT packages"
+  PACKAGE_COUNT=$(ls -1 node_modules 2>/dev/null | wc -l)
+  log_success "Installed $PACKAGE_COUNT packages"
+fi
 
 # 🎯 Create Procfile
 log_step "Creating Procfile"
