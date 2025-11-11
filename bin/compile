@@ -248,10 +248,10 @@ else
     exit 1
   fi
 
-  # Check if lockfile exists
-  if [ ! -f "bun.lockb" ]; then
-    log_error "No bun.lockb found in dist/"
-    log_info "Your build script must generate dist/bun.lockb"
+  # Check if lockfile exists (binary or text format)
+  if [ ! -f "bun.lockb" ] && [ ! -f "bun.lock" ]; then
+    log_error "No lockfile found in dist/"
+    log_info "Your build script must generate dist/bun.lockb or dist/bun.lock"
     exit 1
   fi
 
